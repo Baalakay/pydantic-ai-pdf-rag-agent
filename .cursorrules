@@ -1,0 +1,1132 @@
+# .cursorrules - Comprehensive Configuration
+version: 1.0
+
+metadata:
+  role: "Distinguished Python, PydanticAI, Pydantic, FastAPI, Logfire, and LLM Prompting Principal Engineer"
+  expertise: ["Python", "FastAPI", "PydanticAI", "Pydantic", "LLM Prompting", "Logfire", "OpenAI"]
+
+documentation_sources:
+  openai:
+    url: "https://platform.openai.com/docs"
+    priority: required
+    validation: "complete"
+    read_completely: true
+    scope: ["api-reference", "guides", "examples", "models", "best-practices"]
+    features:
+      api_versions:
+        - "2024-01-01"  # Always use latest API version
+      endpoints:
+        - "/v1/chat/completions"
+        - "/v1/completions"
+        - "/v1/assistants"
+        - "/v1/threads"
+        - "/v1/runs"
+        - "/v1/messages"
+        - "/v1/files"
+        - "/v1/fine-tuning"
+        - "/v1/models"
+      models:
+        - "gpt-4-turbo-preview"
+        - "gpt-4"
+        - "gpt-3.5-turbo"
+      best_practices:
+        - "Use system messages for consistent behavior"
+        - "Implement exponential backoff for rate limits"
+        - "Cache responses when appropriate"
+        - "Use streaming for long responses"
+        - "Implement proper error handling"
+        - "Monitor token usage and costs"
+        - "Use function calling for structured outputs"
+        - "Implement proper prompt engineering practices"
+      security:
+        - "Use environment variables for API keys"
+        - "Implement proper key rotation"
+        - "Monitor API usage and set limits"
+        - "Validate and sanitize user inputs"
+      integration_patterns:
+        chat:
+          - pattern: |
+              async def chat_completion(
+                  messages: List[ai.Message],
+                  model: str = "gpt-4-turbo-preview",
+                  temperature: float = 0.7,
+                  stream: bool = False
+              ) -> ai.ChatResponse:
+                  try:
+                      response = await openai.ChatCompletion.acreate(
+                          model=model,
+                          messages=[msg.dict() for msg in messages],
+                          temperature=temperature,
+                          stream=stream
+                      )
+                      return ai.ChatResponse.model_validate(response)
+                  except openai.RateLimitError:
+                      # Implement backoff retry
+                      pass
+        assistants:
+          - pattern: |
+              async def create_assistant(
+                  name: str,
+                  instructions: str,
+                  tools: List[dict],
+                  model: str = "gpt-4-turbo-preview"
+              ) -> Assistant:
+                  return await openai.beta.assistants.create(
+                      name=name,
+                      instructions=instructions,
+                      tools=tools,
+                      model=model
+                  )
+        streaming:
+          - pattern: |
+              async def stream_completion(messages: List[ai.Message]) -> AsyncIterator[str]:
+                  async for chunk in await chat_completion(messages, stream=True):
+                      if chunk.choices[0].delta.content:
+                          yield chunk.choices[0].delta.content
+      error_handling:
+        - pattern: |
+            try:
+                response = await chat_completion(messages)
+            except openai.RateLimitError as e:
+                await handle_rate_limit(e)
+            except openai.APIError as e:
+                await handle_api_error(e)
+            except openai.APIConnectionError as e:
+                await handle_connection_error(e)
+            except openai.InvalidRequestError as e:
+                await handle_invalid_request(e)
+            except openai.AuthenticationError as e:
+                await handle_auth_error(e)
+      token_management:
+        - pattern: |
+            class TokenManager:
+                def __init__(self):
+                    self.encoding = tiktoken.get_encoding("cl100k_base")
+                
+                def count_tokens(self, messages: List[ai.Message]) -> int:
+                    return sum(len(self.encoding.encode(msg.content)) for msg in messages)
+                
+                def truncate_messages(self, messages: List[ai.Message], max_tokens: int) -> List[ai.Message]:
+                    total = 0
+                    result = []
+                    for msg in reversed(messages):
+                        tokens = self.count_tokens([msg])
+                        if total + tokens <= max_tokens:
+                            result.append(msg)
+                            total += tokens
+                    return list(reversed(result))
+
+  pydantic_ai:
+    url: "https://ai.pydantic.dev/"
+    priority: required
+    scope: ["docs", "examples", "api"]
+    validation: "line_by_line"
+    read_completely: true
+    
+    features:
+      decorators:
+        - "@ai.model"
+        - "@ai.prompt"
+        - "@ai.response"
+        - "@ai.function"
+        - "@ai.tool"
+        - "@ai.system"
+        - "@ai.user"
+        - "@ai.assistant"
+        - "@ai.chat"
+        - "@ai.completion"
+      annotations:
+        - "ai.Message"
+        - "ai.SystemMessage"
+        - "ai.UserMessage"
+        - "ai.AssistantMessage"
+        - "ai.FunctionMessage"
+        - "ai.ToolMessage"
+        - "ai.ChatMessage"
+        - "ai.CompletionMessage"
+        - "ai.MessageRole"
+        - "ai.ChatResponse"
+        - "ai.CompletionResponse"
+        - "ai.TokenCount"
+        - "ai.Usage"
+        - "ai.Choice"
+        - "ai.Function"
+        - "ai.Tool"
+      usage_rules:
+        - "Use @ai.model for all base LLM interaction classes"
+        - "Use @ai.prompt for all prompt template definitions"
+        - "Use @ai.response for parsing LLM responses"
+        - "Use @ai.function for function calling capabilities"
+        - "Use @ai.tool for tool definitions"
+        - "Use @ai.system for system message templates"
+        - "Use @ai.user for user message templates"
+        - "Use @ai.assistant for assistant message templates"
+        - "Use @ai.chat for chat completion handlers"
+        - "Use @ai.completion for text completion handlers"
+
+  fastapi:
+    url: "https://fastapi.tiangolo.com/"
+    priority: required
+    validation: "complete"
+    read_completely: true 
+
+  pydantic:
+    url: "https://docs.pydantic.dev/latest/"
+    priority: required
+    validation: "complete"
+    read_completely: true
+    features:
+      model_decorators:
+        - "@model_validator(mode='before')"
+        - "@model_validator(mode='after')"
+        - "@field_validator"
+        - "@computed_field"
+        - "@model_serializer"
+        - "@field_serializer"
+        - "@model_validator"
+        - "@validate_call"
+        - "@validate_arguments"
+      field_types:
+        - "Field"
+        - "PrivateAttr"
+        - "ConfigDict"
+        - "ValidationInfo"
+        - "SerializationInfo"
+        - "ClassDict"
+        - "InstanceOf"
+        - "Json"
+        - "SecretStr"
+        - "SecretBytes"
+        - "DirectoryPath"
+        - "FilePath"
+        - "EmailStr"
+        - "AnyUrl"
+        - "PostgresDsn"
+        - "RedisDsn"
+        - "HttpUrl"
+      validation_decorators:
+        - "@before_validator"
+        - "@after_validator"
+        - "@root_validator"
+      type_hints:
+       rules:
+        - "Use concrete types over Any"
+        - "Use Union for multiple possible types"
+        - "Use Optional for nullable fields"
+        - "Use List, Dict, Set over generic sequences"
+        - "Use TypeVar for generic type constraints"
+        - "Use Protocol for structural subtyping"
+      type_decorators:
+        - "@property"
+        - "@classmethod"
+        - "@staticmethod"
+      usage_rules:
+        validation:
+          - "Use @field_validator for single field validation"
+          - "Use @model_validator for whole model validation"
+          - "Use @before_validator for pre-validation transformations"
+          - "Use @after_validator for post-validation transformations"
+          - "Use @validate_call for function input validation"
+        serialization:
+          - "Use @model_serializer for custom model serialization"
+          - "Use @field_serializer for custom field serialization"
+        computed:
+          - "Use @computed_field for derived attributes"
+          - "Use @property for simple computed values"
+        security:
+          - "Use SecretStr for sensitive string data"
+          - "Use SecretBytes for sensitive binary data"
+
+  fastapi:
+    url: "https://fastapi.tiangolo.com/"
+    priority: required
+    validation: "complete"
+    read_completely: true
+    features:
+      decorators:
+        - "@app.get"
+        - "@app.post"
+        - "@app.put"
+        - "@app.delete"
+        - "@app.patch"
+        - "@app.head"
+        - "@app.options"
+        - "@app.trace"
+        - "@depends"
+        - "@security"
+        - "@middleware"
+        - "@websocket"
+      dependencies:
+        - "Depends"
+        - "Security"
+        - "Query"
+        - "Path"
+        - "Header"
+        - "Cookie"
+        - "Body"
+        - "Form"
+        - "File"
+        - "UploadFile"
+      responses:
+        - "JSONResponse"
+        - "RedirectResponse"
+        - "StreamingResponse"
+        - "FileResponse"
+      security_schemes:
+        - "OAuth2PasswordBearer"
+        - "OAuth2AuthorizationCodeBearer"
+        - "APIKeyHeader"
+        - "APIKeyCookie"
+        - "APIKeyQuery"
+
+  logfire:
+    url: "https://pydantic.dev/logfire"
+    priority: required
+    validation: "complete"
+    read_completely: true
+    features:
+      decorators:
+        - "@log.catch"
+        - "@log.contextualize"
+        - "@log.trace"
+        - "@log.debug"
+        - "@log.info"
+        - "@log.warning"
+        - "@log.error"
+        - "@log.critical"
+      handlers:
+        - "LogfireHandler"
+        - "AsyncLogfireHandler"
+      contextual:
+        - "bind"
+        - "contextualize"
+        - "patch"
+      usage_rules:
+        - "Use structured logging for all events"
+        - "Include correlation IDs in all logs"
+        - "Log all validation errors"
+        - "Track performance metrics"
+        - "Monitor model usage and latency"
+
+  python:
+    url: "https://docs.python.org/3.13/"
+    priority: required
+    validation: "complete"
+    read_completely: true 
+    use_latest: true
+    style_guides: ["flake8", "pylance"]
+    docstring_format: ["google", "numpy"]
+
+project_structure:
+  enforced: true
+  reference: "fastapi_best_practices"
+  required_files: ["prd-backend.md"]
+  standard_layout:
+    - "app/"
+    - "app/main.py"
+    - "app/models/"
+    - "app/routers/"
+    - "app/core/"
+    - "app/api/"
+    - "app/schemas/"
+    - "app/tests/"
+    - "app/logging/"
+
+code_generation:
+  steps:
+    - analyze_requirements
+    - create_pseudocode
+    - confirm_approach
+    - implement_solution
+    - verify_completion
+    - generate_tests
+  documentation:
+    required: true
+    docstrings: true
+    style: ["google", "numpy"]
+  response_format:
+    use_markdown: true
+    code_blocks:
+      show_file_path: true
+      show_language: true
+      context_lines: 3
+
+code_standards:
+  python:
+    version: "latest"
+    linters: ["flake8", "pylance"]
+    type_checking: true
+    type_hints: "comprehensive"
+  security:
+    required: true
+  performance:
+    optimization_required: true
+
+
+
+pydantic_ai:
+  decorators:
+    priority_rules:
+      - "Model validators before field validators"
+      - "Before validators before after validators"
+      - "Computed fields after all validators"
+    validation_rules:
+      - "Use @ai.model for all LLM interaction models"
+      - "Use @ai.prompt for prompt templates"
+      - "Use @ai.response for response parsing"
+      - "Use @field_validator for field-level validation"
+      - "Use @model_validator for model-level validation"
+      - "Use @computed_field for derived attributes"
+    naming_conventions:
+      validator_functions:
+        prefix: "validate_"
+        format: "snake_case"
+      computed_functions:
+        prefix: "compute_"
+        format: "snake_case"
+    documentation:
+      required: true
+      format: "google"
+      must_include: ["Args", "Returns", "Raises"]
+    validation: strict
+    patterns:
+      - "@ai.prompt"
+      - "@ai.function"
+      - "@ai.model"
+      - "@ai.response"
+    usage_rules:
+      prompt_engineering: true
+      type_validation: true
+      response_parsing: true
+  annotations:
+    rules:
+      - "Use appropriate Message types for all LLM interactions"
+      - "Use Field() for all model attributes requiring constraints"
+      - "Use ConfigDict for model configuration"
+      - "Include type hints for all parameters and return values"
+    examples:
+      pydantic_ai:
+        model:
+          - pattern: |
+              @ai.model
+              class Conversation(BaseModel):
+                  messages: List[ai.Message]
+                  model: str = "gpt-4"
+                  temperature: float = 0.7
+          - antipattern: |
+              # Don't mix message types without proper validation
+              @ai.model
+              class BadConversation(BaseModel):
+                  messages: List[Any]  # Too generic
+        prompt:
+          - pattern: |
+              @ai.prompt
+              def generate_summary(text: str) -> ai.UserMessage:
+                  return f"Summarize this text concisely: {text}"
+          - antipattern: |
+              @ai.prompt
+              def bad_prompt() -> str:  # Missing type annotation for ai.Message
+                  return "Generic prompt"
+        response:
+          - pattern: |
+              @ai.response
+              class SummaryResponse(BaseModel):
+                  summary: str
+                  key_points: List[str]
+          - antipattern: |
+              @ai.response
+              class BadResponse:  # Not extending BaseModel
+                  summary: str
+      pydantic:
+        validation:
+          - pattern: |
+              @model_validator(mode='before')
+              def validate_dates(cls, values):
+                  if values['end_date'] <= values['start_date']:
+                      raise ValueError("End date must be after start date")
+                  return values
+          - antipattern: |
+              @model_validator
+              def bad_validator(cls, values):
+                  values['computed'] = values['a'] + values['b']  # Don't modify in validator
+        computed:
+          - pattern: |
+              @computed_field
+              @property
+              def full_name(self) -> str:
+                  return f"{self.first_name} {self.last_name}"
+          - antipattern: |
+              @computed_field
+              def bad_computed(self):  # Missing return type annotation
+                  return self.value * 2
+    error_handling:
+      validation:
+        - pattern: |
+            try:
+                validated_data = model.model_validate(data)
+            except ValidationError as e:
+                error_details = e.errors()
+                # Handle specific error types
+                for error in error_details:
+                    if error["type"] == "value_error":
+                        # Handle value errors
+                    elif error["type"] == "type_error":
+                        # Handle type errors
+        - logging:
+            required: true
+            level: "ERROR"
+            include: ["error_type", "field_path", "input_value"]
+      pydantic_ai:
+        - pattern: |
+            try:
+                response = await model.acomplete(messages)
+            except ai.RateLimitError:
+                # Implement exponential backoff
+            except ai.InvalidRequestError:
+                # Validate input before retry
+            except ai.AuthenticationError:
+                # Handle auth issues
+            finally:
+                # Clean up resources
+    optimization:
+      pydantic:
+        model_config:
+          - "Use frozen=True for immutable models"
+          - "Set extra='forbid' to prevent unexpected fields"
+          - "Use alias_generator for consistent field naming"
+        validation:
+          - "Use pre-validators for data normalization"
+          - "Batch related validations together"
+          - "Use cached_property for expensive computations"
+        
+      pydantic_ai:
+        caching:
+          - "Implement response caching for identical prompts"
+          - "Cache token counts for frequently used templates"
+        batching:
+          - "Batch similar requests when possible"
+          - "Use bulk operations for multiple validations"
+    common_patterns:
+      pydantic_ai:
+        conversation:
+          - pattern: |
+              @ai.model
+              class ConversationManager:
+                  def __init__(self):
+                      self.messages: List[ai.Message] = []
+                      self.token_count = TokenCounter()
+
+                  @ai.chat
+                  async def chat(self, user_input: str) -> ai.ChatResponse:
+                      self.messages.append(ai.UserMessage(content=user_input))
+                      return await self.model.acomplete(self.messages)
+        chain:
+          - pattern: |
+              @ai.model
+              class ProcessingChain:
+                  @ai.prompt
+                  def step1(self, input: str) -> ai.UserMessage:
+                      return f"Process step 1: {input}"
+
+                  @ai.prompt
+                  def step2(self, result1: str) -> ai.UserMessage:
+                      return f"Process step 2: {result1}"
+      pydantic:
+        inheritance:
+          - pattern: |
+              class BaseConfig(BaseModel):
+                  model_config = ConfigDict(
+                      validate_assignment=True,
+                      frozen=True,
+                      extra='forbid'
+                  )
+              class SpecificConfig(BaseConfig):
+                  specific_field: str
+        mixins:
+          - pattern: |
+              class TimestampMixin(BaseModel):
+                  created_at: datetime
+                  updated_at: datetime
+                  @model_validator(mode='before')
+                  def set_timestamps(cls, values):
+                      values['updated_at'] = datetime.now()
+                      if 'created_at' not in values:
+                          values['created_at'] = datetime.now()
+                      return values
+
+dependencies:
+  pydantic_ai:
+    version: "latest"
+    allow_alternatives: false
+  fastapi:
+    version: "latest"
+    allow_alternatives: false
+  pydantic:
+    version: "latest"
+    allow_alternatives: false
+  decorators:
+    required: true
+    validation: strict
+    patterns:
+      - "@validator"
+      - "@root_validator"
+      - "@computed_field"
+  type_validation:
+    strict: true
+    coerce: false
+
+fastapi:
+  decorators:
+    required: true
+    patterns:
+      - "@app.get"
+      - "@app.post"
+      - "@app.put"
+      - "@app.delete"
+      - "@depends"
+  security:
+    authentication: required
+    authorization: required
+
+logfire:
+  integration:
+    required: true
+    patterns:
+      structured_logging: true
+      metrics_tracking: true
+      alert_configuration: true
+      performance_monitoring: true
+    features:
+      - sync_async_handlers
+      - request_tracking
+      - model_tracking
+      - token_usage
+      - cost_estimation
+      - rate_limiting
+      - error_aggregation
+      - request_tracing
+
+workflow:
+  pre_generation:
+    - read_prd
+    - analyze_requirements
+    - create_pseudocode
+    - confirm_with_user
+  generation:
+    - implement_solution
+    - verify_completion
+    - check_security
+    - optimize_performance
+    - generate_tests
+  post_generation:
+    - verify_imports
+    - verify_naming
+    - run_linters
+    - verify_docstrings
+
+error_handling:
+  documentation_gaps:
+    action: "notify_user"
+    continue: false
+    explanation_required: true
+  implementation_issues:
+    action: "explain_limitations"
+    continue: false
+    provide_reasoning: true
+
+output_format:
+  file_headers: true
+  spacing: 
+    before_block: 2
+    after_block: 2
+  comments:
+    required: true
+    style: ["# filename", "# modifications"]
+  code_blocks:
+    context_lines: 3
+    include_file_path: true
+    new_file_format: true
+    edit_format: true
+
+architecture:
+  modifications:
+    require_explicit_approval: true
+  patterns:
+    follow_existing: true
+    change_policy: "explicit_instruction_only"
+
+logfire_integration:
+  setup_patterns:
+    basic_config:
+      pattern: |
+        from pydantic_logfire import LogfireHandler, configure
+        
+        configure(
+            api_key="your-key",
+            service_name="ai-service",
+            environment="production",
+            batch_size=100,
+            flush_interval=2.0,
+            structured=True
+        )
+    async_setup:
+      pattern: |
+        from pydantic_logfire import AsyncLogfireHandler
+        
+        async def setup_logging():
+            handler = AsyncLogfireHandler(
+                api_key="your-key",
+                batch_max_size=1000,
+                batch_flush_interval=5.0,
+                background_tasks=True
+            )
+            await handler.astart()
+            return handler
+  context_managers:
+    request_tracking:
+      pattern: |
+        @contextmanager
+        def request_context(request_id: str, user_id: str):
+            with log.contextualize(
+                request_id=request_id,
+                user_id=user_id,
+                start_time=time.time()
+            ):
+                try:
+                    yield
+                finally:
+                    duration = time.time() - log.bound_context.get("start_time", 0)
+                    log.info("request_completed", duration=duration)
+    model_tracking:
+      pattern: |
+        @contextmanager
+        def model_execution_context(model_name: str, params: dict):
+            with log.contextualize(
+                model=model_name,
+                parameters=params,
+                memory_start=psutil.Process().memory_info().rss
+            ):
+                try:
+                    yield
+                finally:
+                    memory_used = psutil.Process().memory_info().rss - log.bound_context.get("memory_start", 0)
+                    log.info("model_execution_completed", memory_used=memory_used)
+  custom_handlers:
+    sensitive_data:
+      pattern: |
+        class SensitiveDataHandler(LogfireHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.sensitive_fields = {"password", "token", "api_key"}
+            
+            def format(self, record):
+                formatted = super().format(record)
+                for field in self.sensitive_fields:
+                    if field in formatted:
+                        formatted[field] = "[REDACTED]"
+                return formatted
+    performance_metrics:
+      pattern: |
+        class PerformanceHandler(LogfireHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.slow_threshold = kwargs.get("slow_threshold", 1.0)
+            
+            def format(self, record):
+                formatted = super().format(record)
+                if "duration" in formatted:
+                    if formatted["duration"] > self.slow_threshold:
+                        formatted["performance_alert"] = True
+                        formatted["severity"] = "warning"
+                return formatted
+
+  advanced_patterns:
+    token_tracking:
+      pattern: |
+        class TokenTracker:
+            def __init__(self):
+                self.token_count = 0
+                
+            @log.trace("token_usage")
+            def track_tokens(self, message: ai.Message):
+                tokens = count_tokens(message)
+                self.token_count += tokens
+                log.info("token_update",
+                        message_tokens=tokens,
+                        total_tokens=self.token_count,
+                        cost_estimate=calculate_cost(tokens))
+    rate_limiting:
+      pattern: |
+        class RateLimitLogger:
+            def __init__(self, window_seconds: int = 60):
+                self.window = window_seconds
+                self.requests = []
+            
+            @log.trace("rate_limit")
+            def log_request(self):
+                now = time.time()
+                self.requests = [t for t in self.requests if t > now - self.window]
+                self.requests.append(now)
+                
+                log.info("rate_limit_check",
+                        requests_in_window=len(self.requests),
+                        window_seconds=self.window,
+                        rate=len(self.requests)/self.window)
+    error_aggregation:
+      pattern: |
+        class ErrorAggregator:
+            def __init__(self):
+                self.error_counts = defaultdict(int)
+                
+            @log.catch(message="Error aggregation")
+            def track_error(self, error: Exception):
+                error_type = type(error).__name__
+                self.error_counts[error_type] += 1
+                
+                log.error("error_occurred",
+                         error_type=error_type,
+                         error_message=str(error),
+                         error_count=self.error_counts[error_type],
+                         aggregated_counts=dict(self.error_counts))
+    model_metrics:
+      pattern: |
+        class ModelMetricsTracker:
+            @log.trace("model_metrics")
+            async def track_model_performance(self, model_name: str):
+                with log.contextualize(model=model_name):
+                    metrics = {
+                        "latency": [],
+                        "token_usage": [],
+                        "error_rate": 0,
+                        "success_rate": 0
+                    }
+                    
+                    async def _track_request(request):
+                        start = time.perf_counter()
+                        try:
+                            response = await process_request(request)
+                            metrics["success_rate"] += 1
+                            metrics["token_usage"].append(response.usage.total_tokens)
+                        except Exception as e:
+                            metrics["error_rate"] += 1
+                            log.error("model_error", error=str(e))
+                        finally:
+                            metrics["latency"].append(time.perf_counter() - start)
+                    
+                    log.info("model_metrics_summary",
+                            avg_latency=statistics.mean(metrics["latency"]),
+                            avg_tokens=statistics.mean(metrics["token_usage"]),
+                            error_rate=metrics["error_rate"]/(metrics["success_rate"] + metrics["error_rate"]))
+    performance_tracking:
+    pattern: |
+      @log.trace("performance")
+      async def track_performance(func):
+          async def wrapper(*args, **kwargs):
+              start = time.perf_counter()
+              result = await func(*args, **kwargs)
+              duration = time.perf_counter() - start
+              log.info("performance_metric",
+                      function=func.__name__,
+                      duration=duration,
+                      args=args,
+                      kwargs=kwargs)
+              return result
+          return wrapper
+    request_tracing:
+    pattern: |
+      @log.trace("request_chain")
+      async def trace_request_chain(request_id: str):
+          with log.contextualize(chain_id=request_id):
+              log.info("chain_started")
+              
+              async def _trace_step(step: str, **kwargs):
+                  with log.contextualize(step=step):
+                      try:
+                          result = await process_step(step, **kwargs)
+                          log.info("step_completed",
+                                duration=result.duration,
+                                outputs=result.outputs)
+                          return result
+                      except Exception as e:
+                          log.error("step_failed",
+                                  error=str(e))
+                          raise
+              
+              results = []
+              for step in chain_steps:
+                  results.append(await _trace_step(step))
+              
+              log.info("chain_completed",
+                      total_steps=len(results),
+                      successful_steps=len([r for r in results if r.success]))
+    cost_tracking:
+    pattern: |
+      class CostTracker:
+          def __init__(self):
+              self.costs = defaultdict(float)
+              
+          @log.trace("cost_tracking")
+          def track_request_cost(self, model: str, tokens: int):
+              cost = calculate_cost(model, tokens)
+              self.costs[model] += cost
+              
+              log.info("cost_tracked",
+                      model=model,
+                      tokens=tokens,
+                      request_cost=cost,
+                      total_model_cost=self.costs[model],
+                      total_cost=sum(self.costs.values()))
+
+performance_guidelines:
+  caching:
+    - "Use LRU cache for frequent computations"
+    - "Implement response caching with TTL"
+    - "Cache validated models when appropriate"
+  
+  batch_processing:
+    - "Batch similar API calls"
+    - "Use bulk validation when possible"
+    - "Implement connection pooling"
+
+  async:
+    - "Use async validators for I/O operations"
+    - "Implement concurrent processing where appropriate"
+    - "Handle backpressure in streaming responses"
+
+security_guidelines:
+  input_validation:
+    - "Validate all input data before processing"
+    - "Implement rate limiting on API endpoints"
+    - "Use SecretStr for sensitive data"
+  
+  authentication:
+    - "Implement proper token validation"
+    - "Use secure password hashing"
+    - "Implement proper session management"
+
+edge_cases:
+  pydantic_ai:
+    rate_limiting:
+      pattern: |
+        @ai.model
+        class RateLimitedModel:
+            @backoff.on_exception(backoff.expo, ai.RateLimitError)
+            async def safe_complete(self, messages: List[ai.Message]) -> ai.ChatResponse:
+                return await self.model.acomplete(messages)
+    
+    token_overflow:
+      pattern: |
+        @ai.model
+        class TokenAwareModel:
+            def truncate_messages(self, messages: List[ai.Message], max_tokens: int) -> List[ai.Message]:
+                current_tokens = 0
+                result = []
+                for msg in reversed(messages):
+                    tokens = self.count_tokens(msg)
+                    if current_tokens + tokens <= max_tokens:
+                        result.append(msg)
+                        current_tokens += tokens
+                return list(reversed(result))
+
+    concurrent_requests:
+      pattern: |
+        @ai.model
+        class ConcurrentModel:
+            async def batch_complete(self, message_sets: List[List[ai.Message]]) -> List[ai.ChatResponse]:
+                tasks = [self.model.acomplete(msgs) for msgs in message_sets]
+                return await asyncio.gather(*tasks, return_exceptions=True)
+
+testing_patterns:
+  pytest_fixtures:
+    - pattern: |
+        @pytest.fixture
+        def ai_model():
+            return TestAIModel(
+                messages=[ai.SystemMessage(content="Test system")],
+                temperature=0.0
+            )
+    
+    - pattern: |
+        @pytest.fixture
+        def mock_completion(mocker):
+            return mocker.patch("pydantic_ai.completion", return_value=mock_response)
+
+  test_cases:
+    validation:
+      pattern: |
+        def test_field_validation():
+            with pytest.raises(ValidationError) as exc_info:
+                InvalidModel(field="invalid")
+            assert "validation error" in str(exc_info.value)
+
+    ai_responses:
+      pattern: |
+        @pytest.mark.asyncio
+        async def test_ai_completion():
+            response = await model.acomplete([
+                ai.UserMessage(content="test")
+            ])
+            assert isinstance(response, ai.ChatResponse)
+            assert response.choices[0].message.content
+
+    edge_cases:
+      pattern: |
+        @pytest.mark.parametrize("input,expected", [
+            ("", ValidationError),
+            (None, ValidationError),
+            ("valid", Success),
+        ])
+        def test_edge_cases(input, expected):
+            if expected is ValidationError:
+                with pytest.raises(ValidationError):
+                    Model(field=input)
+            else:
+                assert Model(field=input)
+
+deployment_guidelines:
+  containerization:
+    docker:
+      pattern: |
+        # Dockerfile
+        FROM python:3.11-slim
+        
+        WORKDIR /app
+        COPY poetry.lock pyproject.toml ./
+        
+        RUN pip install poetry && \
+            poetry config virtualenvs.create false && \
+            poetry install --no-dev
+        
+        COPY . .
+        
+        CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  kubernetes:
+    resources:
+      pattern: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ai-service
+        spec:
+          replicas: 3
+          template:
+            spec:
+              containers:
+                - name: ai-service
+                  resources:
+                    requests:
+                      memory: "512Mi"
+                      cpu: "250m"
+                    limits:
+                      memory: "1Gi"
+                      cpu: "500m"
+
+  scaling:
+    pattern: |
+      from fastapi import BackgroundTasks
+      
+      @app.post("/async-process")
+      async def process_async(
+          task: ProcessTask,
+          background_tasks: BackgroundTasks
+      ):
+          background_tasks.add_task(process_in_background, task)
+          return {"status": "processing"}
+
+observability:
+  logfire:
+    setup:
+      pattern: |
+        from pydantic_logfire import LogfireHandler
+        
+        log_config = {
+            "handlers": [LogfireHandler(api_key="your-key")],
+            "format": {
+                "timestamp": True,
+                "level": True,
+                "name": True,
+                "correlation_id": True
+            }
+        }
+
+    structured_logging:
+      pattern: |
+        @log.contextualize(correlation_id=get_correlation_id())
+        async def process_request(request: Request):
+            log.info("processing_request", 
+                    request_id=request.id,
+                    user_id=request.user_id)
+            
+            try:
+                result = await process_data(request)
+                log.info("request_processed",
+                        processing_time=result.time,
+                        status="success")
+            except Exception as e:
+                log.error("processing_failed",
+                         error=str(e),
+                         traceback=traceback.format_exc())
+
+    metrics:
+      pattern: |
+        @log.trace("model.completion")
+        async def complete_with_metrics(messages: List[ai.Message]) -> ai.ChatResponse:
+            start_time = time.time()
+            try:
+                response = await model.acomplete(messages)
+                log.info("completion_success",
+                        duration=time.time() - start_time,
+                        tokens_used=response.usage.total_tokens,
+                        model=model.name)
+                return response
+            except Exception as e:
+                log.error("completion_failed",
+                         error=str(e),
+                         duration=time.time() - start_time)
+                raise
+
+    alerts:
+      pattern: |
+        @log.catch(message="Critical error in AI processing")
+        async def process_with_alerts():
+            log.bind(severity="high")
+            try:
+                result = await risky_operation()
+                if result.quality < threshold:
+                    log.warning("quality_below_threshold",
+                              quality=result.quality,
+                              threshold=threshold)
+            finally:
+                log.unbind("severity")
+
+monitoring:
+  health_checks:
+    pattern: |
+      @app.get("/health")
+      async def health_check():
+          checks = {
+              "ai_service": await check_ai_service(),
+              "database": await check_database(),
+              "cache": await check_cache()
+          }
+          return JSONResponse(
+              status_code=200 if all(checks.values()) else 503,
+              content={"status": checks}
+          )
+
+  performance_tracking:
+    pattern: |
+      @log.trace("performance")
+      async def track_performance(func):
+          async def wrapper(*args, **kwargs):
+              start = time.perf_counter()
+              result = await func(*args, **kwargs)
+              duration = time.perf_counter() - start
+              log.info("performance_metric",
+                      function=func.__name__,
+                      duration=duration,
+                      args=args,
+                      kwargs=kwargs)
+              return result
+          return wrapper
