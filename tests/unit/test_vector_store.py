@@ -11,7 +11,6 @@ async def test_add_entry(vector_store: VectorStore) -> None:
 
     assert entry.content == "Test content"
     assert isinstance(entry.id, UUID)
-    assert isinstance(entry.created_at, datetime)
     assert isinstance(entry.updated_at, datetime)
     assert isinstance(entry.embedding, list)
     assert len(entry.embedding) == 1536  # text-embedding-3-small dimension

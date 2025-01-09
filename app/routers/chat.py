@@ -34,7 +34,7 @@ async def query(
             question=query.question,
             max_context_sections=query.max_context_sections
         )
-        
+
         return ChatResponse(answer=response.content)
     except Exception as e:
         logger.error(f"Error processing chat query: {str(e)}")

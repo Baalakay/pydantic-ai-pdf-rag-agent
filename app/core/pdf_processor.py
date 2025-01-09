@@ -41,18 +41,18 @@ class PDFProcessor:
         try:
             reader = PdfReader(filepath)
             sections: List[PDFSection] = []
-            
+
             # Extract text from each page
             for page_num, page in enumerate(reader.pages, 1):
                 text = page.extract_text()
-                
+
                 # Clean and normalize the text
                 text = text.replace('\x00', ' ')  # Remove null bytes
                 text = ' '.join(text.split())  # Normalize whitespace
-                
+
                 # Add context about which document this is from
                 context = f"From document: {filename} (Page {page_num})\n\n"
-                
+
                 # Create a single section per page with context
                 if text.strip():
                     sections.append(PDFSection(
@@ -61,7 +61,7 @@ class PDFProcessor:
                         section_number=1,
                         filename=filename
                     ))
-            
+
             # Extract metadata safely
             metadata_info: Dict[str, Any] = reader.metadata or {}
             metadata = {
@@ -70,7 +70,7 @@ class PDFProcessor:
                 "creation_date": str(metadata_info.get("/CreationDate", "")),
                 "page_count": str(len(reader.pages))
             }
-            
+
             return PDFDocument(
                 filename=filename,
                 sections=sections,

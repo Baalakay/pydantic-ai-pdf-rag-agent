@@ -20,7 +20,7 @@ class VectorStore:
         """Load entries from storage."""
         storage_path = os.getenv("VECTOR_STORE_PATH", "data/vector_store.json")
         os.makedirs(os.path.dirname(storage_path), exist_ok=True)
-        
+
         try:
             if os.path.exists(storage_path):
                 with open(storage_path, 'r') as f:
@@ -46,7 +46,7 @@ class VectorStore:
                                 entry_data=entry_data
                             )
                             continue
-                    
+
                     self.entries = entries
                     logfire.info(
                         "vector_store_loaded",
@@ -67,7 +67,7 @@ class VectorStore:
         try:
             # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(storage_path), exist_ok=True)
-            
+
             # Convert entries to JSON-serializable format
             entries_data = []
             for entry in self.entries:
@@ -77,10 +77,10 @@ class VectorStore:
                 # Convert datetime to ISO format string
                 entry_dict["updated_at"] = entry_dict["updated_at"].isoformat()
                 entries_data.append(entry_dict)
-            
+
             with open(storage_path, 'w') as f:
                 json.dump(entries_data, f)
-            
+
             logfire.info(
                 "vector_store_saved",
                 num_entries=len(self.entries),
@@ -112,7 +112,7 @@ class VectorStore:
 
         self.entries.append(entry)
         self._save_entries()
-        
+
         logfire.info(
             "vector_entry_added",
             entry_id=str(entry.id),

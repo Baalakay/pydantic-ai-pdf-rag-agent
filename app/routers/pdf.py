@@ -4,7 +4,6 @@ import os
 from pydantic import BaseModel
 import logging
 from ..core import PDFProcessor
-from ..models.vector import VectorEntry
 from ..core.vector_store import VectorStore
 from openai import OpenAI
 
