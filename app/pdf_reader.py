@@ -228,6 +228,20 @@ def search_pdf(query: str) -> Tuple[Optional[str], List[str]]:
             for item in section_items:
                 if target in item.lower():
                     results.append(item)
+    else:
+        # For general queries, return all sections with headers
+        results.extend(['Features:'])
+        results.extend(sections['features'])
+        results.extend(['\nAdvantages:'])
+        results.extend(sections['advantages'])
+        results.extend(['\nElectrical Specifications:'])
+        results.extend(sections['electrical'])
+        results.extend(['\nMagnetic Specifications:'])
+        results.extend(sections['magnetic'])
+        results.extend(['\nPhysical/Operational Specifications:'])
+        results.extend(sections['physical'])
+        results.extend(['\nNotes:'])
+        results.extend(sections['notes'])
 
     return model, results
 
