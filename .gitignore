@@ -77,3 +77,14 @@ node_modules/
 .env.production.local
 *.pem
 .python-version
+
+# Generated images
+uploads/images/*.png
+uploads/images/*.jpg
+uploads/images/*.jpeg
+uploads/images/*.gif
+uploads/images/*.bmp
+uploads/images/*.tiff
+uploads/images/*.ico
+uploads/images/*.svg
+uploads/images/*.webp

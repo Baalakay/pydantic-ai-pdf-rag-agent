@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Dict
 import os
 import re
 import fitz  # type: ignore  # PyMuPDF
+from app.models.comparison import ModelSpecs, ComparisonResult, ElectricalSpecs, MagneticSpecs, PhysicalSpecs, KeyDifferences
 
 def find_pdf_by_model(model_keyword: str, pdf_dir: str = "uploads/pdfs") -> Optional[str]:
     """Find a PDF file based on a model keyword."""
@@ -332,6 +333,200 @@ def extract_model_diagram(pdf_path: str, output_dir: str = "uploads/images") -> 
             doc.close()
 
     return None
+
+def extract_model_specs(pdf_path: str) -> ModelSpecs:
+    """Extract all specifications for a model and return as structured data."""
+    sections = extract_sections(pdf_path)
+
+    # Extract model number from pdf path
+    match = re.search(r'HSR-(\d+[RFW]?)-?Series', os.path.basename(pdf_path), re.IGNORECASE)
+    if not match:
+        raise ValueError(f"Could not extract model number from PDF path: {pdf_path}")
+    model = match.group(1)
+
+    # Get diagram path
+    diagram_path = extract_model_diagram(pdf_path)
+
+    # Parse electrical specifications
+    electrical = ElectricalSpecs(
+        power_watts=None,
+        voltage_switching=None,
+        voltage_breakdown=None,
+        current_switching=None,
+        current_carry=None,
+        resistance_contact=None,
+        resistance_insulation=None,
+        capacitance=None,
+        temperature_operating=None,
+        temperature_storage=None
+    )
+    for spec in sections['electrical']:
+        if 'Power Watts' in spec:
+            electrical.power_watts = spec
+        elif 'Voltage Switching' in spec:
+            electrical.voltage_switching = spec
+        elif 'Breakdown VDC' in spec:
+            electrical.voltage_breakdown = spec
+        elif 'Current Switching' in spec:
+            electrical.current_switching = spec
+        elif 'Carry Amp' in spec:
+            electrical.current_carry = spec
+        elif 'Contact Resistance' in spec:
+            electrical.resistance_contact = spec
+        elif 'Insulation Resistance' in spec:
+            electrical.resistance_insulation = spec
+        elif 'Capacitance' in spec:
+            electrical.capacitance = spec
+        elif 'Operating °C' in spec:
+            electrical.temperature_operating = spec
+        elif 'Storage °C' in spec:
+            electrical.temperature_storage = spec
+
+    # Parse magnetic specifications
+    magnetic = MagneticSpecs(
+        pull_in_range=None,
+        test_coil=None
+    )
+    for spec in sections['magnetic']:
+        if 'Pull - In Range' in spec:
+            magnetic.pull_in_range = spec
+        elif 'Test Coil' in spec:
+            magnetic.test_coil = spec
+
+    # Parse physical specifications
+    physical = PhysicalSpecs(
+        volume=None,
+        contact_material=None,
+        operate_time=None,
+        release_time=None
+    )
+    for spec in sections['physical']:
+        if 'Volume' in spec:
+            physical.volume = spec
+        elif 'Contact Material' in spec:
+            physical.contact_material = spec
+        elif 'Operate Time' in spec:
+            physical.operate_time = spec
+        elif 'Release Time' in spec:
+            physical.release_time = spec
+
+    return ModelSpecs(
+        model=model,
+        features=sections['features'],
+        advantages=sections['advantages'],
+        electrical=electrical,
+        magnetic=magnetic,
+        physical=physical,
+        notes=sections['notes'],
+        diagram_path=diagram_path
+    )
+
+def extract_models_from_query(query: str) -> List[str]:
+    """Extract multiple model numbers from a comparison query."""
+    return re.findall(r'(\d+[RFWrfw]?)', query)
+
+def compare_models(query: str) -> Optional[ComparisonResult]:
+    """Compare specifications of multiple models (up to 3)."""
+    models = extract_models_from_query(query)
+    if not models or len(models) > 3:
+        return None
+
+    query = query.lower()
+    # Determine comparison type
+    if 'electrical' in query:
+        comparison_type = 'electrical'
+    elif 'magnetic' in query:
+        comparison_type = 'magnetic'
+    elif 'physical' in query or 'operational' in query:
+        comparison_type = 'physical'
+    elif 'features' in query or 'advantages' in query:
+        comparison_type = 'features'
+    else:
+        comparison_type = 'full'
+
+    # Get specs for each model
+    model_specs = []
+    for model in models:
+        pdf_path = find_pdf_by_model(model)
+        if pdf_path:
+            specs = extract_model_specs(pdf_path)
+            model_specs.append(specs)
+
+    if not model_specs or len(model_specs) < 2:
+        return None
+
+    # Calculate key differences
+    key_differences = KeyDifferences(
+        power=None,
+        voltage=None,
+        current=None,
+        size=None,
+        temperature=None,
+        other=[]
+    )
+
+    # Compare first two models for differences
+    model1, model2 = model_specs[0], model_specs[1]
+
+    # Power difference
+    if model1.electrical.power_watts and model2.electrical.power_watts:
+        match1 = re.search(r'(\d+(?:\.\d+)?)', model1.electrical.power_watts)
+        match2 = re.search(r'(\d+(?:\.\d+)?)', model2.electrical.power_watts)
+        if match1 and match2:
+            power1 = float(match1.group(1))
+            power2 = float(match2.group(1))
+            ratio = power2 / power1
+            key_differences.power = f"{model2.model} handles {ratio:.1f}x more power ({power2}W vs {power1}W)"
+
+    # Voltage difference
+    if model1.electrical.voltage_switching and model2.electrical.voltage_switching:
+        match1 = re.search(r'(\d+(?:\.\d+)?)', model1.electrical.voltage_switching)
+        match2 = re.search(r'(\d+(?:\.\d+)?)', model2.electrical.voltage_switching)
+        if match1 and match2:
+            v1 = float(match1.group(1))
+            v2 = float(match2.group(1))
+            key_differences.voltage = f"{model2.model} has higher voltage ratings ({v2}V vs {v1}V switching)"
+
+    # Current difference
+    if model1.electrical.current_switching and model2.electrical.current_switching:
+        match1 = re.search(r'(\d+(?:\.\d+)?)', model1.electrical.current_switching)
+        match2 = re.search(r'(\d+(?:\.\d+)?)', model2.electrical.current_switching)
+        if match1 and match2:
+            i1 = float(match1.group(1))
+            i2 = float(match2.group(1))
+            key_differences.current = f"{model2.model} can switch higher currents ({i2}A vs {i1}A)"
+
+    # Size difference
+    if model1.physical.volume and model2.physical.volume:
+        match1 = re.search(r'(\d+(?:\.\d+)?)', model1.physical.volume)
+        match2 = re.search(r'(\d+(?:\.\d+)?)', model2.physical.volume)
+        if match1 and match2:
+            vol1 = float(match1.group(1))
+            vol2 = float(match2.group(1))
+            ratio = vol2 / vol1
+            key_differences.size = f"{model2.model} is larger with ~{ratio:.1f}x the capsule volume"
+
+    # Temperature range
+    if model1.electrical.temperature_operating and model2.electrical.temperature_operating:
+        match1 = re.search(r'-(\d+)', model1.electrical.temperature_operating)
+        match2 = re.search(r'-(\d+)', model2.electrical.temperature_operating)
+        if match1 and match2:
+            temp1 = match1.group(1)
+            temp2 = match2.group(1)
+            if temp1 != temp2:
+                key_differences.temperature = f"{model2.model} has wider temperature range (-{temp2}°C vs -{temp1}°C minimum)"
+
+    # Add other notable differences
+    if model1.features and model2.features:
+        unique_features = set(model2.features) - set(model1.features)
+        if unique_features:
+            key_differences.other.extend([f"Unique {model2.model} feature: {f}" for f in unique_features])
+
+    return ComparisonResult(
+        models=model_specs,
+        comparison_type=comparison_type,
+        key_differences=key_differences
+    )
 
 if __name__ == "__main__":
     test_pdf()
