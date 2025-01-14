@@ -20,6 +20,7 @@ def extract_sections(pdf_path: str) -> Dict[str, List[str]]:
     """Extract and categorize sections from the PDF."""
     sections: Dict[str, List[str]] = {
         'features': [],
+        'advantages': [],
         'electrical': [],
         'magnetic': [],
         'physical': [],
@@ -28,34 +29,93 @@ def extract_sections(pdf_path: str) -> Dict[str, List[str]]:
     
     current_section = None
     current_point = ""
+    in_notes = False
+    last_bullet_line = None
+    collecting_features = False
+    bullet_points = []
     
     with pdfplumber.open(pdf_path) as pdf:
         page = pdf.pages[0]
         text = page.extract_text()
         lines = text.split('\n')
         
-        for line in lines:
+        for i, line in enumerate(lines):
             line = line.strip()
             if not line:
                 continue
                 
             # Detect section headers
-            if 'Electrical Specifications' in line:
+            if 'Features' in line or 'Advantages' in line:
+                collecting_features = True
+                current_section = None  # Reset other sections
+                in_notes = False
+                continue
+            elif 'Electrical Specifications' in line:
+                collecting_features = False
                 current_section = 'electrical'
+                in_notes = False
                 continue
             elif 'Magnetic Specifications' in line:
+                collecting_features = False
                 current_section = 'magnetic'
+                in_notes = False
                 continue
             elif 'Physical/Operational Specifications' in line:
+                collecting_features = False
                 current_section = 'physical'
+                in_notes = False
                 continue
-            elif line.startswith('('):  # Notes section
+            
+            # Handle Features and Advantages collection
+            if collecting_features:
+                if '•' in line:
+                    if current_point:
+                        bullet_points.append(current_point.strip())
+                        current_point = ""
+                    
+                    parts = line.split('•')
+                    for part in parts[1:]:
+                        if part.strip():
+                            if current_point:
+                                bullet_points.append(current_point.strip())
+                            current_point = part.strip()
+                    last_bullet_line = i
+                elif line.strip():
+                    # Check if this line is a continuation
+                    if last_bullet_line is not None:
+                        is_next_line = i == last_bullet_line + 1
+                        is_short_word = len(line.split()) <= 2
+                        if is_next_line and is_short_word:
+                            # Special handling for Voltage Breakdown continuation
+                            if bullet_points and "Voltage Breakdown" in bullet_points[-1]:
+                                bullet_points[-1] += " " + line.strip()
+                            elif current_point and "Voltage Breakdown" in current_point:
+                                current_point += " " + line.strip()
+                        else:
+                            if current_point:
+                                bullet_points.append(current_point.strip())
+                            current_point = line.strip()
+                continue
+            
+            # Handle notes section
+            if re.match(r'\(\d+\)', line):
                 current_section = 'notes'
-            elif not current_section and ('Features' in line or 'Advantages' in line):
-                current_section = 'features'
+                in_notes = True
+                sections['notes'].append(line)
+                continue
+            
+            if in_notes and line:
+                if not re.match(r'\(\d+\)', line):
+                    if sections['notes']:
+                        sections['notes'][-1] = sections['notes'][-1] + ' ' + line
+                    else:
+                        sections['notes'].append(line)
+                else:
+                    sections['notes'].append(line)
                 continue
                 
-            if current_section:
+            # Handle other sections
+            if current_section and not in_notes:
                 if '•' in line:
                     if current_point:
                         sections[current_section].append(current_point.strip())
@@ -65,10 +125,31 @@ def extract_sections(pdf_path: str) -> Dict[str, List[str]]:
                         if part.strip():
                             sections[current_section].append(part.strip())
                 else:
-                    # Handle regular lines (like specifications)
-                    if line.strip() and len(line.split()) > 1:  # Avoid single words
+                    if line.strip() and len(line.split()) > 1:
                         sections[current_section].append(line.strip())
-
+    
+    # Process collected bullet points for features and advantages
+    if bullet_points:
+        # Add the last point if exists
+        if current_point:
+            bullet_points.append(current_point.strip())
+        
+        # Clean up bullet points
+        cleaned_points = []
+        seen = set()
+        for point in bullet_points:
+            if point not in seen and len(point.split()) > 1:
+                cleaned_points.append(point)
+                seen.add(point)
+        bullet_points = cleaned_points
+        
+        # Classify points
+        for i, point in enumerate(bullet_points, 1):
+            if i <= 5 and i % 2 == 1:  # First three odd-numbered points
+                sections['features'].append(point)
+            else:
+                sections['advantages'].append(point)
+    
     return sections
 
 def extract_model_from_query(query: str) -> Optional[str]:
@@ -92,7 +173,7 @@ def identify_query_type(query: str) -> Tuple[str, Optional[str]]:
         'electrical': r'electrical|electrical spec',
         'magnetic': r'magnetic|magnetic spec',
         'physical': r'physical|operational|physical spec|operational spec',
-        'features': r'features|advantages',
+        'features': r'features?|advantages?',  # Modified to catch both features and advantages
         'notes': r'notes|footnotes'
     }
     
@@ -112,7 +193,7 @@ def identify_query_type(query: str) -> Tuple[str, Optional[str]]:
         if re.search(pattern, query):
             return 'attribute', pattern
             
-    return 'section', None  # Default to full section if can't identify
+    return 'section', None
 
 def search_pdf(query: str) -> Tuple[Optional[str], List[str]]:
     """
@@ -132,8 +213,15 @@ def search_pdf(query: str) -> Tuple[Optional[str], List[str]]:
     
     results = []
     if query_type == 'section' and target:
-        # Return entire section
-        results.extend(sections.get(target, []))
+        if target == 'features':
+            # For features/advantages queries, return both
+            results.extend(['Features:'])
+            results.extend(sections['features'])
+            results.extend(['\nAdvantages:'])
+            results.extend(sections['advantages'])
+        else:
+            # Return other sections as normal
+            results.extend(sections.get(target, []))
     elif query_type == 'attribute' and target:
         # Search for specific attribute across all sections
         for section_items in sections.values():
