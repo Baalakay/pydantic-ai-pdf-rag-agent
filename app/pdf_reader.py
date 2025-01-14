@@ -2,6 +2,7 @@ import pdfplumber
 from typing import List, Optional, Tuple, Dict
 import os
 import re
+import fitz  # type: ignore  # PyMuPDF
 
 def find_pdf_by_model(model_keyword: str, pdf_dir: str = "uploads/pdfs") -> Optional[str]:
     """Find a PDF file based on a model keyword."""
@@ -163,17 +164,21 @@ def identify_query_type(query: str) -> Tuple[str, Optional[str]]:
     """
     Identify if the query is for a section or specific attribute.
     Returns tuple of (query_type, target)
-    query_type: 'section' or 'attribute'
+    query_type: 'section' or 'attribute' or 'diagram'
     target: section name or attribute name
     """
     query = query.lower()
+
+    # Check for diagram queries first
+    if any(word in query for word in ['diagram', 'drawing', 'schematic', 'dimension', 'picture', 'image']):
+        return 'diagram', None
 
     # Section patterns
     section_patterns = {
         'electrical': r'electrical|electrical spec',
         'magnetic': r'magnetic|magnetic spec',
         'physical': r'physical|operational|physical spec|operational spec',
-        'features': r'features?|advantages?',  # Modified to catch both features and advantages
+        'features': r'features?|advantages?',
         'notes': r'notes|footnotes'
     }
 
@@ -199,6 +204,7 @@ def search_pdf(query: str) -> Tuple[Optional[str], List[str]]:
     """
     Search PDFs based on a natural language query.
     Returns tuple of (model_number, relevant_text_sections).
+    For diagram queries, returns tuple of (model_number, [diagram_path]).
     """
     model = extract_model_from_query(query)
     if not model:
@@ -208,10 +214,24 @@ def search_pdf(query: str) -> Tuple[Optional[str], List[str]]:
     if not pdf_path:
         return model, []
 
-    sections = extract_sections(pdf_path)
     query_type, target = identify_query_type(query)
 
+    # Handle diagram queries
+    if query_type == 'diagram':
+        diagram_path = extract_model_diagram(pdf_path)
+        if diagram_path:
+            return model, [f"Diagram saved to: {diagram_path}"]
+        return model, ["No diagram found"]
+
+    # Handle text-based queries
+    sections = extract_sections(pdf_path)
     results = []
+
+    # Extract diagram for all queries
+    diagram_path = extract_model_diagram(pdf_path)
+    if diagram_path:
+        results.extend(['\nDiagram:', f"Diagram saved to: {diagram_path}"])
+
     if query_type == 'section' and target:
         if target == 'features':
             # For features/advantages queries, return both
@@ -266,6 +286,52 @@ def test_pdf() -> None:
                 print("No relevant information found")
         else:
             print("No model number found in query")
+
+def extract_model_diagram(pdf_path: str, output_dir: str = "uploads/images") -> Optional[str]:
+    """Extract the model diagram image from the PDF.
+    Returns the path to the saved image if successful, None otherwise."""
+    os.makedirs(output_dir, exist_ok=True)
+
+    try:
+        doc = fitz.open(pdf_path)
+        page = doc[0]  # First page
+
+        # Get list of images on the page
+        image_list = page.get_images()
+
+        if image_list:
+            # Find the largest image (likely the diagram)
+            largest_image = None
+            max_size = 0
+
+            for img_idx, img in enumerate(image_list):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+
+                # Calculate image size
+                size = base_image["width"] * base_image["height"]
+                if size > max_size:
+                    max_size = size
+                    largest_image = base_image
+
+            if largest_image:
+                # Create output filename
+                pdf_name = os.path.basename(pdf_path)
+                img_name = pdf_name.replace('.pdf', '_diagram.png')
+                output_path = os.path.join(output_dir, img_name)
+
+                # Save image
+                with open(output_path, "wb") as f:
+                    f.write(largest_image["image"])
+
+                return output_path
+    except Exception as e:
+        print(f"Error extracting image: {e}")
+    finally:
+        if 'doc' in locals():
+            doc.close()
+
+    return None
 
 if __name__ == "__main__":
     test_pdf()
