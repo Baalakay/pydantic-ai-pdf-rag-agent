@@ -12,9 +12,8 @@ from app.core.pdf_processor import PDFProcessor  # noqa: E402
 
 def process_pdf(filename: str) -> None:
     """Process a single PDF and output its structured content."""
-    processor = PDFProcessor("uploads/pdfs")
-    doc = processor.process_pdf(filename)
-    print(doc.model_dump())
+    processor = PDFProcessor()
+    processor.process_pdf(os.path.join("uploads/pdfs", filename))
 
 
 def main() -> None:

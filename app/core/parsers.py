@@ -1,212 +1,110 @@
-from typing import List, Optional, Dict, Any, Union
-import re
-from app.models.pdf import (
-    SpecValue,
-    ElectricalSpecs,
-    MagneticSpecs,
-    PhysicalSpecs,
-)
+from typing import Dict, List, Optional, Union, Any, cast
+
+from app.models.pdf import SpecDict
 
 
 class PDFSectionParser:
-    """Parser for extracting structured content from PDF sections."""
-    
-    @staticmethod
-    def _extract_value_unit(value_str: str) -> Optional[SpecValue]:
-        """Extract numeric value and optional unit from a string."""
-        if not value_str:
-            return None
-            
-        # Handle ranges like "10 to 20" or "10-20"
-        range_pattern = r'([\d.]+)\s*(?:to|-)\s*([\d.]+)\s*([A-Za-z/°]+)?'
-        range_match = re.search(range_pattern, value_str)
-        if range_match:
-            value = float(range_match.group(2))
-            unit = range_match.group(3)
-            return SpecValue(value=value, unit=unit)
-            
-        # Handle simple numeric values
-        value_pattern = r'([\d.]+)\s*([A-Za-z/°]+)?'
-        value_match = re.search(value_pattern, value_str)
-        if value_match:
-            value = float(value_match.group(1))
-            unit = value_match.group(2)
-            return SpecValue(value=value, unit=unit)
-            
+    """Parser for PDF sections."""
+
+    def parse_section(
+        self, section: str, content: Union[List[str], List[List[Any]]]
+    ) -> Union[List[str], Dict[str, Dict[str, SpecDict]], None]:
+        """Parse a section based on its type."""
+        if section in ["features", "advantages"]:
+            return self._parse_bullet_points(content)
+        elif section in ["electrical", "magnetic", "physical"]:
+            return self._parse_table_specs(cast(List[List[Any]], content))
         return None
 
-    @classmethod
-    def parse_section(
-        cls, 
-        lines: List[str], 
-        section_type: str
-    ) -> Union[Dict[str, Any], List[str], str]:
-        """Parse any section based on its structure and content."""
-        if section_type == 'electrical':
-            return cls.parse_electrical(lines).model_dump()
-        elif section_type == 'magnetic':
-            return cls.parse_magnetic(lines).model_dump()
-        elif section_type == 'physical':
-            return cls.parse_physical(lines).model_dump()
-        elif section_type in ['features', 'advantages']:
-            return cls.parse_features_advantages(lines)
-        else:
-            return cls.parse_notes(lines)
-
-    @classmethod
-    def _parse_spec_lines(
-        cls,
-        lines: List[str]
-    ) -> Dict[str, Dict[str, SpecValue]]:
-        """Parse lines into a dictionary of specifications."""
-        specs: Dict[str, Dict[str, SpecValue]] = {}
+    def _parse_bullet_points(
+        self, content: Union[List[str], List[List[Any]]]
+    ) -> List[str]:
+        """Parse bullet points from text or table content."""
+        points: List[str] = []
         
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            # Skip section headers
-            if 'Specifications' in line:
-                continue
-                
-            # Split into parts and clean up
-            parts = [p.strip() for p in line.split('-')]
-            if len(parts) < 2:
-                continue
-                
-            # First part contains the key and unit
-            key_parts = parts[0].split()
-            if len(key_parts) < 2:
-                continue
-                
-            # Last part contains the value and qualifier (maximum, minimum, etc)
-            value_parts = parts[-1].split()
-            if not value_parts:
-                continue
-                
-            # Extract value and unit
-            try:
-                # Handle temperature ranges like "-40 to +125"
-                if 'to' in value_parts:
-                    to_idx = value_parts.index('to')
-                    # Use the upper bound for ranges
-                    value = float(value_parts[to_idx + 1].replace('+', ''))
-                else:
-                    value = float(value_parts[0])
-                
-                # Get unit from either key parts or value parts
-                unit: Optional[str] = key_parts[-1]
-                valid_units = [
-                    'vdc', 'amp', 'ohm',
-                    'pf', '°c', 'cc', 'mseconds'
-                ]
-                if unit.lower() in valid_units:
-                    # Found unit in key
-                    key = ' '.join(key_parts[:-1]).lower()
-                else:
-                    # Unit might be in value parts
-                    has_unit = len(value_parts) > 1
-                    unit = value_parts[-1] if has_unit else None
-                    key = ' '.join(key_parts).lower()
-                
-                # Clean up unit
-                if unit:
-                    replacements = [
-                        ('VDC', 'V'), ('Amp', 'A'), ('Ohm', 'Ω'),
-                        ('pF', 'pF'), ('°C', '°C'), ('CC', 'cc'),
-                        ('mSeconds', 'ms')
-                    ]
-                    for old, new in replacements:
-                        unit = unit.replace(old, new)
-                
-                # Create SpecValue
-                spec_value = SpecValue(value=value, unit=unit)
-                
-                # Determine category and store value
-                if 'power' in key or 'watts' in key:
-                    specs.setdefault('power', {})[key] = spec_value
-                elif 'voltage' in key or 'breakdown' in key:
-                    specs.setdefault('voltage', {})[key] = spec_value
-                elif 'current' in key or 'amp' in key:
-                    specs.setdefault('current', {})[key] = spec_value
-                elif 'resistance' in key:
-                    specs.setdefault('resistance', {})[key] = spec_value
-                elif 'capacitance' in key:
-                    specs.setdefault('capacitance', {})[key] = spec_value
-                elif 'temperature' in key or 'storage' in key:
-                    specs.setdefault('temperature', {})[key] = spec_value
-                elif 'time' in key:
-                    specs.setdefault('timing', {})[key] = spec_value
-                elif 'volume' in key or 'dimension' in key:
-                    specs.setdefault('dimensions', {})[key] = spec_value
-                elif 'operate' in key or 'pull' in key:
-                    specs.setdefault('operate_point', {})[key] = spec_value
-                elif 'release' in key or 'drop' in key:
-                    specs.setdefault('release_point', {})[key] = spec_value
-            except (ValueError, IndexError):
-                continue
-        
-        return specs
-
-    @classmethod
-    def parse_electrical(cls, lines: List[str]) -> ElectricalSpecs:
-        """Parse electrical specifications from lines of text."""
-        specs = cls._parse_spec_lines(lines)
-        return ElectricalSpecs(
-            power=specs.get('power', {}),
-            voltage=specs.get('voltage', {}),
-            current=specs.get('current', {}),
-            resistance=specs.get('resistance', {}),
-            capacitance=specs.get('capacitance', {})
-        )
-
-    @classmethod
-    def parse_magnetic(cls, lines: List[str]) -> MagneticSpecs:
-        """Parse magnetic specifications from lines of text."""
-        specs = cls._parse_spec_lines(lines)
-        return MagneticSpecs(
-            operate_point=specs.get('operate', {}),
-            release_point=specs.get('release', {}),
-            pull_in_range=specs.get('pull', {}),
-            drop_out_range=specs.get('drop', {})
-        )
-
-    @classmethod
-    def parse_physical(cls, lines: List[str]) -> PhysicalSpecs:
-        """Parse physical specifications from lines of text."""
-        specs = cls._parse_spec_lines(lines)
-        return PhysicalSpecs(
-            dimensions=specs.get('dimensions', {}),
-            temperature=specs.get('temperature', {}),
-            timing=specs.get('timing', {}),
-            material={}  # Material is handled differently as it's str: str
-        )
-
-    @classmethod
-    def parse_features_advantages(cls, lines: List[str]) -> List[str]:
-        """Parse features or advantages into a list of strings."""
-        items: List[str] = []
-        current_item = ""
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            if '•' in line:
-                if current_item:
-                    items.append(current_item)
-                current_item = line.split('•', 1)[1].strip()
+        if isinstance(content, list) and content:
+            if isinstance(content[0], str):
+                # Handle text content
+                for line in cast(List[str], content):
+                    if "•" in line:
+                        # Handle bulleted content
+                        for point in line.split("•"):
+                            if point.strip():
+                                points.append(point.strip())
+                    else:
+                        # Handle non-bulleted content
+                        if line.strip():
+                            points.append(line.strip())
             else:
-                current_item += " " + line
-                
-        if current_item:
-            items.append(current_item)
-            
-        return items
+                # Handle table content
+                for row in cast(List[List[Any]], content):
+                    if row and row[0]:
+                        points.append(str(row[0]).strip())
+        
+        # Clean up points
+        cleaned_points: List[str] = []
+        seen = set()
+        for point in points:
+            if point not in seen and len(point.split()) > 1:
+                cleaned_points.append(point)
+                seen.add(point)
+                    
+        return cleaned_points
 
-    @classmethod
-    def parse_notes(cls, lines: List[str]) -> str:
-        """Parse notes while maintaining line breaks."""
-        return "\n".join(line.strip() for line in lines if line.strip()) 
+    def _parse_table_specs(
+        self,
+        table: List[List[Any]]
+    ) -> Dict[str, Dict[str, SpecDict]]:
+        """Parse specifications from a table structure."""
+        if not table or len(table) < 2:  # Need at least header and one row
+            return {}
+            
+        specs: Dict[str, Dict[str, SpecDict]] = {}
+        current_category: Optional[str] = None
+        
+        # Process each row after header
+        for row in table[1:]:
+            try:
+                # Clean row data
+                row_data = [str(cell).strip() if cell else "" for cell in row]
+                
+                # Skip empty rows
+                if not any(row_data):
+                    continue
+                    
+                # Get main category and subcategory
+                category = row_data[0] if row_data[0] else current_category
+                subcategory = (
+                    row_data[1] if len(row_data) > 1 and row_data[1] else None
+                )
+                
+                if category and isinstance(category, str):
+                    current_category = category
+                    if category not in specs:
+                        specs[category] = {}
+                        
+                # Get unit and value
+                if len(row_data) > 2:
+                    unit = None
+                    if row_data[2]:
+                        unit = row_data[2].strip()
+                    
+                    if len(row_data) > 3 and row_data[3]:
+                        value = row_data[3].strip()
+                        spec = SpecDict(unit=unit, value=value)
+                        
+                        # If we have a subcategory, nest under main category
+                        if (subcategory and isinstance(subcategory, str) and 
+                                category and isinstance(category, str)):
+                            if subcategory not in specs[category]:
+                                specs[category][subcategory] = spec
+                        else:
+                            # No subcategory, add directly to category
+                            if category and isinstance(category, str):
+                                specs[category] = {"": spec}
+                    
+            except (ValueError, IndexError) as e:
+                print(f"Error parsing row {row_data}: {str(e)}")
+                continue
+                    
+        return specs 
