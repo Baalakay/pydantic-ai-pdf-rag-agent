@@ -168,11 +168,12 @@ class PDFProcessor:
                     
                     # Handle cases where unit and value might be in different positions
                     if len(row_data) > 3:
-                        unit = row_data[2].strip() if row_data[2] else None
-                        value = row_data[3].strip() if row_data[3] else None
+                        unit = row_data[2].strip() if row_data[2] else ""
+                        value = row_data[3].strip() if row_data[3] else ""
                     else:
                         # If only 3 columns, assume last is value
-                        value = row_data[2].strip() if row_data[2] else None
+                        unit = ""
+                        value = row_data[2].strip() if row_data[2] else ""
                     
                     if value and category:
                         # If we have a non-empty subcategory, nest under main category
