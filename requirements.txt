@@ -18,3 +18,5 @@ asgiref>=3.8.1
 opentelemetry-instrumentation-fastapi>=0.50b0
 opentelemetry-instrumentation-asgi>=0.50b0
 opentelemetry-util-http>=0.50b0
+PyMuPDF>=1.23.8
+pdfplumber>=0.10.3
