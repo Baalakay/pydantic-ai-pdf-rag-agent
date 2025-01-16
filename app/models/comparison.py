@@ -1,47 +1,63 @@
-from typing import List, Optional, Dict, Callable
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
+
 class ElectricalSpecs(BaseModel):
-    power_watts: Optional[str] = Field(None, description="Maximum power in watts")
-    voltage_switching: Optional[str] = Field(None, description="Maximum switching voltage")
-    voltage_breakdown: Optional[str] = Field(None, description="Minimum breakdown voltage")
-    current_switching: Optional[str] = Field(None, description="Maximum switching current")
-    current_carry: Optional[str] = Field(None, description="Maximum carry current")
-    resistance_contact: Optional[str] = Field(None, description="Maximum contact resistance")
-    resistance_insulation: Optional[str] = Field(None, description="Minimum insulation resistance")
-    capacitance: Optional[str] = Field(None, description="Typical contact capacitance")
-    temperature_operating: Optional[str] = Field(None, description="Operating temperature range")
-    temperature_storage: Optional[str] = Field(None, description="Storage temperature range")
+    power_watts: Optional[str] = None
+    voltage_switching: Optional[str] = None
+    voltage_breakdown: Optional[str] = None
+    current_switching: Optional[str] = None
+    current_carry: Optional[str] = None
+    resistance_contact: Optional[str] = None
+    resistance_insulation: Optional[str] = None
+    capacitance: Optional[str] = None
+    temperature_operating: Optional[str] = None
+    temperature_storage: Optional[str] = None
+
 
 class MagneticSpecs(BaseModel):
-    pull_in_range: Optional[str] = Field(None, description="Pull-in range in ampere turns")
-    test_coil: Optional[str] = Field(None, description="Test coil specification")
+    pull_in_range: Optional[str] = None
+    test_coil: Optional[str] = None
+
 
 class PhysicalSpecs(BaseModel):
-    volume: Optional[str] = Field(None, description="Nominal capsule volume")
-    contact_material: Optional[str] = Field(None, description="Contact material type")
-    operate_time: Optional[str] = Field(None, description="Maximum operate time including bounce")
-    release_time: Optional[str] = Field(None, description="Maximum release time")
+    volume: Optional[str] = None
+    contact_material: Optional[str] = None
+    operate_time: Optional[str] = None
+    release_time: Optional[str] = None
+
 
 class ModelSpecs(BaseModel):
-    model: str = Field(..., description="Model number")
-    features: List[str] = Field(default_factory=list, description="Model features")
-    advantages: List[str] = Field(default_factory=list, description="Model advantages")
-    electrical: ElectricalSpecs = Field(default_factory=ElectricalSpecs, description="Electrical specifications")
-    magnetic: MagneticSpecs = Field(default_factory=MagneticSpecs, description="Magnetic specifications")
-    physical: PhysicalSpecs = Field(default_factory=PhysicalSpecs, description="Physical specifications")
-    notes: List[str] = Field(default_factory=list, description="Important notes")
-    diagram_path: Optional[str] = Field(None, description="Path to model diagram")
+    model: str = Field(..., description="Model identifier")
+    features: List[str] = Field(default_factory=list)
+    advantages: List[str] = Field(default_factory=list)
+    electrical: ElectricalSpecs = Field(default_factory=ElectricalSpecs)
+    magnetic: MagneticSpecs = Field(default_factory=MagneticSpecs)
+    physical: PhysicalSpecs = Field(default_factory=PhysicalSpecs)
+    notes: List[str] = Field(default_factory=list)
+
 
 class KeyDifferences(BaseModel):
-    power: Optional[str] = Field(None, description="Power handling difference")
-    voltage: Optional[str] = Field(None, description="Voltage rating difference")
-    current: Optional[str] = Field(None, description="Current handling difference")
-    size: Optional[str] = Field(None, description="Size/volume difference")
-    temperature: Optional[str] = Field(None, description="Temperature range difference")
-    other: List[str] = Field(default_factory=list, description="Other notable differences")
+    power: Optional[str] = None
+    voltage: Optional[str] = None
+    current: Optional[str] = None
+    size: Optional[str] = None
+    temperature: Optional[str] = None
+    other: List[str] = Field(default_factory=list)
+
 
 class ComparisonResult(BaseModel):
-    models: List[ModelSpecs] = Field(..., description="List of model specifications to compare")
-    comparison_type: str = Field(..., description="Type of comparison: full, electrical, magnetic, physical, or features")
-    key_differences: Optional[KeyDifferences] = Field(None, description="Highlighted key differences between models")
+    models: List[ModelSpecs] = Field(
+        ...,
+        description="Models being compared"
+    )
+    comparison_type: str = Field(
+        ...,
+        description=(
+            "Type of comparison: full, electrical, magnetic, physical, "
+            "or features"
+        )
+    )
+    key_differences: Optional[KeyDifferences] = Field(
+        default_factory=KeyDifferences
+    )

@@ -1,7 +1,25 @@
-from .base import BaseDocument
-from .features import FeatureSet
+from .chat import Message, Conversation
+from .vector import VectorEntry
+from .pdf import PDFSection, PDFDocument
+from .comparison import (
+    ElectricalSpecs,
+    MagneticSpecs,
+    PhysicalSpecs,
+    ModelSpecs,
+    KeyDifferences,
+    ComparisonResult,
+)
 
 __all__ = [
-    'BaseDocument',
-    'FeatureSet'
+    "Message",
+    "Conversation",
+    "VectorEntry",
+    "PDFSection",
+    "PDFDocument",
+    "ElectricalSpecs",
+    "MagneticSpecs",
+    "PhysicalSpecs",
+    "ModelSpecs",
+    "KeyDifferences",
+    "ComparisonResult",
 ]
