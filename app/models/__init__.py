@@ -1,14 +1,7 @@
 from .chat import Message, Conversation
 from .vector import VectorEntry
 from .pdf import PDFSection, PDFDocument
-from .comparison import (
-    ElectricalSpecs,
-    MagneticSpecs,
-    PhysicalSpecs,
-    ModelSpecs,
-    KeyDifferences,
-    ComparisonResult,
-)
+from .comparison import ComparisonResult
 
 __all__ = [
     "Message",
@@ -16,10 +9,5 @@ __all__ = [
     "VectorEntry",
     "PDFSection",
     "PDFDocument",
-    "ElectricalSpecs",
-    "MagneticSpecs",
-    "PhysicalSpecs",
-    "ModelSpecs",
-    "KeyDifferences",
     "ComparisonResult",
 ]

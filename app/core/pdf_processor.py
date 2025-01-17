@@ -1,12 +1,14 @@
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 import pdfplumber
 import json
+import os
+from pathlib import Path
 from app.models.pdf import PDFDocument, PDFSection, SpecDict
 
 
 class PDFProcessor:
-    def __init__(self):
-        self.current_file = None
+    def __init__(self) -> None:
+        self.current_file: Optional[str] = None
         self.text_sections = ['features', 'advantages', 'notes']
         self.section_patterns = {
             'electrical': 'electrical specifications',
@@ -18,7 +20,7 @@ class PDFProcessor:
 
     def _extract_text(self, filename: str) -> str:
         self.current_file = filename
-        with pdfplumber.open(filename) as pdf:
+        with pdfplumber.open(Path(filename)) as pdf:
             first_page = pdf.pages[0]
             return first_page.extract_text()
 
@@ -256,9 +258,6 @@ class PDFProcessor:
         # Process features and advantages
         features_advantages = self._parse_features_advantages(text)
         if features_advantages['features'] or features_advantages['advantages']:
-            print("\nFeatures and Advantages:")
-            print(json.dumps(features_advantages, indent=2))
-            print()
             sections.append(PDFSection(
                 section_type='features_advantages',
                 content=features_advantages
@@ -290,9 +289,6 @@ class PDFProcessor:
                     'magnetic': 'Magnetic',
                     'physical': 'Physical/Operational'
                 }
-                print(f"\n{section_header[section_type]} Specifications:")
-                print(json.dumps(json_data, indent=2))
-                print()
                 sections.append(PDFSection(
                     section_type=section_type,
                     content=specs
@@ -315,13 +311,36 @@ class PDFProcessor:
             
         return sections
 
-    def process_pdf(self, filename: str) -> PDFDocument:
-        text = self._extract_text(filename)
+    def _extract_diagram_path(self, text: str) -> Optional[str]:
+        """Extract diagram path from the PDF."""
+        if not self.current_file:
+            return None
+            
+        with pdfplumber.open(Path(self.current_file)) as pdf:
+            first_page = pdf.pages[0]
+            # Extract images from the page
+            images = first_page.images
+            if images:
+                # Extract just the model number from the filename
+                pdf_name = os.path.basename(self.current_file)
+                # Remove UUID prefix and file extension
+                model = (pdf_name.split('_')[-1]
+                        .replace('-Series.pdf', '')
+                        .replace('-Series-Rev-K.pdf', ''))
+                return f"diagrams/{model}.png"
+        return None
+
+    def process_pdf(self, pdf_path: str) -> PDFDocument:
+        """Process a PDF file and return structured data."""
+        text = self._extract_text(pdf_path)
         sections = self._extract_sections(text)
+        diagram_path = self._extract_diagram_path(text)
+        
+        # Create diagrams directory if it doesn't exist
+        if diagram_path:
+            os.makedirs("diagrams", exist_ok=True)
+        
         return PDFDocument(
-            filename=filename,
             sections=sections,
-            metadata={},
-            diagram_path=None,
-            page_count=1
+            diagram_path=diagram_path
         )

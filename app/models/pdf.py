@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Union, Dict
 from pydantic import BaseModel, Field
 
 
@@ -30,8 +30,11 @@ class PDFSection(BaseModel):
 
 class PDFDocument(BaseModel):
     """Represents a processed PDF document."""
-    filename: str
-    sections: List[PDFSection]
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    diagram_path: Optional[str] = None
-    page_count: int
+    sections: List[PDFSection] = Field(
+        ...,
+        description="List of sections in the document"
+    )
+    diagram_path: Optional[str] = Field(
+        None,
+        description="Path to the diagram image extracted from the PDF"
+    )
