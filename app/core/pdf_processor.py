@@ -1,9 +1,7 @@
 from typing import Dict, List, Optional
 import pdfplumber
-import json
-import os
 from pathlib import Path
-from app.models.pdf import PDFDocument, PDFSection, SpecDict
+from app.models.pdf import PDFData, SectionData, CategorySpec, SpecValue
 
 
 class PDFProcessor:
@@ -116,7 +114,7 @@ class PDFProcessor:
             tables = first_page.extract_tables()
             return tables
 
-    def _parse_table_to_specs(self, table: List[List[str]]) -> Dict[str, Dict[str, SpecDict]]:
+    def _parse_table_to_specs(self, table: List[List[str]]) -> Dict[str, Dict[str, SpecValue]]:
         if not table:  # Empty table
             return {}
             
@@ -127,7 +125,7 @@ class PDFProcessor:
         if len(first_row) == 2 and "Features" in first_row[0] and "Advantages" in first_row[1]:
             return {}
             
-        specs: Dict[str, Dict[str, SpecDict]] = {}
+        specs: Dict[str, Dict[str, SpecValue]] = {}
         current_category: Optional[str] = None
         
         # Determine if first row is data by checking its structure
@@ -180,13 +178,13 @@ class PDFProcessor:
                     if value and category:
                         # If we have a non-empty subcategory, nest under main category
                         if subcategory:
-                            specs[category][subcategory] = SpecDict(
+                            specs[category][subcategory] = SpecValue(
                                 unit=unit,
                                 value=value
                             )
                         else:
                             # No subcategory or empty subcategory, add directly to category
-                            specs[category][""] = SpecDict(
+                            specs[category][""] = SpecValue(
                                 unit=unit,
                                 value=value
                             )
@@ -197,150 +195,156 @@ class PDFProcessor:
                 
         return specs
 
-    def _determine_section_type(self, specs: Dict[str, Dict[str, SpecDict]]) -> str:
-        """Determine section type based on the content and structure of the specifications."""
-        # Get all units and values to analyze the type of measurements
-        units = []
-        values = []
-        for category in specs.values():
-            for spec in category.values():
-                if spec.unit:
-                    units.append(spec.unit.lower())
-                if spec.value:
-                    values.append(spec.value.lower())
-
-        # Analyze measurement patterns
-        electrical_patterns = any(
-            unit.endswith(suffix) for unit in units
-            for suffix in ['vdc', 'amp', 'ohm', 'pf', '°c']
-        )
+    def _determine_section_type(self, text: str, table_start_index: int) -> str:
+        """Find the section name that precedes this table position."""
+        # Split text into lines and clean
+        lines = text.split('\n')
+        lines = [line.strip() for line in lines]
         
-        magnetic_patterns = any(
-            'ampere turns' in unit.lower() or
-            'gauss' in unit.lower() or
-            'test coil' in ' '.join(values).lower()
-            for unit in units
-        )
+        # Find all section headers and their positions
+        section_positions = []
+        for i, line in enumerate(lines):
+            if "Specifications" in line:
+                # Keep the full section name
+                section_positions.append((line.strip(), i))
         
-        physical_patterns = any(
-            unit.endswith(suffix) for unit in units
-            for suffix in ['mseconds', 'cc', 'mm']
-        ) or any(
-            'material' in key.lower() or
-            'time' in key.lower() or
-            'volume' in key.lower()
-            for key in specs.keys()
-        )
-
-        # Determine section based on strongest pattern match
-        if electrical_patterns and not magnetic_patterns and not physical_patterns:
-            return 'electrical'
-        elif magnetic_patterns and not physical_patterns:
-            return 'magnetic'
-        elif physical_patterns:
-            return 'physical'
+        # Sort by position in document
+        section_positions.sort(key=lambda x: x[1])
         
-        # If no clear pattern, analyze the measurement context
-        measurements = ' '.join(list(specs.keys()) + units + values).lower()
-        if any(term in measurements for term in ['voltage', 'current', 'resistance', 'capacitance', 'temperature']):
-            return 'electrical'
-        elif any(term in measurements for term in ['pull', 'coil', 'magnetic', 'gauss']):
-            return 'magnetic'
-        elif any(term in measurements for term in ['material', 'time', 'volume', 'dimension']):
-            return 'physical'
+        # Find the section header that precedes our table
+        section_name = section_positions[-1][0]  # Default to last section if can't determine
+        for i in range(len(section_positions)):
+            current_pos = section_positions[i][1]
+            next_pos = section_positions[i + 1][1] if i + 1 < len(section_positions) else len(lines)
             
-        # Default based on most common pattern in this type of document
-        return 'electrical'
-
-    def _extract_sections(self, text: str) -> List[PDFSection]:
-        sections = []
+            if current_pos <= table_start_index < next_pos:
+                section_name = section_positions[i][0]
+                break
         
-        # Process features and advantages
-        features_advantages = self._parse_features_advantages(text)
-        if features_advantages['features'] or features_advantages['advantages']:
-            sections.append(PDFSection(
-                section_type='features_advantages',
-                content=features_advantages
-            ))
+        return section_name
+
+    def _extract_notes(self, text: str) -> List[str]:
+        """Extract notes from the text."""
+        notes = []
+        collecting_notes = False
+        current_note = ""
+        
+        lines = text.split('\n')
+        for line in lines:
+            line = line.strip()
             
-        # Process tables for specifications
+            # Start collecting notes when we see the Notes header
+            if 'Notes:' in line:
+                collecting_notes = True
+                # Don't include the header itself
+                line = line.replace('Notes:', '').strip()
+                
+            if collecting_notes and line:
+                # Handle bullet points
+                if '•' in line:
+                    if current_note:
+                        notes.append(current_note.strip())
+                        current_note = ""
+                    parts = line.split('•')
+                    for part in parts[1:]:
+                        if part.strip():
+                            notes.append(part.strip())
+                else:
+                    # Append to current note if it's a continuation
+                    if current_note:
+                        current_note += " " + line
+                    else:
+                        current_note = line
+                        
+        # Add the last note if there is one
+        if current_note:
+            notes.append(current_note.strip())
+            
+        return notes
+
+    def _extract_model_name(self, text: str) -> str:
+        """Extract the model name from the text."""
+        lines = text.split('\n')
+        for line in lines:
+            if 'HSR-' in line:
+                # Extract the part starting with HSR- and ending at the first space
+                model_parts = line.split()
+                for part in model_parts:
+                    if 'HSR-' in part:
+                        # Clean up any non-alphanumeric characters except -
+                        model = ''.join(c for c in part if c.isalnum() or c == '-')
+                        return model
+        return ""
+
+    def _format_section_name(self, name: str) -> str:
+        """Format section name for JSON output by replacing non-alphanumeric chars with underscore."""
+        # Replace any non-alphanumeric character with underscore and convert to title case
+        formatted = ''.join('_' if not c.isalnum() else c for c in name)
+        # Remove duplicate underscores if any
+        while '__' in formatted:
+            formatted = formatted.replace('__', '_')
+        # Remove leading/trailing underscores and convert to title case
+        return formatted.strip('_').title()
+
+    def process_pdf(self, filename: str) -> PDFData:
+        """Process a PDF file and return structured data."""
+        # Extract text and tables
+        text = self._extract_text(filename)
         tables = self._extract_tables(text)
         
-        # Process each table
+        # Process tables into specifications first
+        sections: Dict[str, SectionData] = {}
+        
+        # Get text lines for section header lookup
+        lines = text.split('\n')
+        table_positions = []
+        current_pos = 0
+        
+        # Find positions of tables in the text
         for table in tables:
+            if table and table[0]:  # Skip empty tables
+                # Look for the table's first row in the text
+                first_row = ' '.join(str(cell) for cell in table[0] if cell)
+                while current_pos < len(lines):
+                    if first_row in lines[current_pos]:
+                        table_positions.append(current_pos)
+                        current_pos += 1
+                        break
+                    current_pos += 1
+        
+        # Process tables with their positions
+        for i, (table, pos) in enumerate(zip(tables, table_positions)):
             specs = self._parse_table_to_specs(table)
-            if specs:
-                # Determine section type based on content
-                section_type = self._determine_section_type(specs)
-                
-                # Convert SpecDict objects to dictionaries
-                json_data = {}
-                for category, subcategories in specs.items():
-                    json_data[category] = {}
-                    for subcategory, spec in subcategories.items():
-                        json_data[category][subcategory] = {
-                            "unit": spec.unit if spec.unit is not None else "",
-                            "value": spec.value if spec.value is not None else ""
-                        }
-                
-                # Print section-specific header
-                section_header = {
-                    'electrical': 'Electrical',
-                    'magnetic': 'Magnetic',
-                    'physical': 'Physical/Operational'
-                }
-                sections.append(PDFSection(
-                    section_type=section_type,
-                    content=specs
-                ))
+            if specs:  # Only process non-empty specs
+                # Skip the features/advantages table
+                if len(table[0]) == 2 and "Features" in str(table[0][0]) and "Advantages" in str(table[0][1]):
+                    continue
                     
-        # Process notes section
-        notes_content = []
-        in_notes = False
-        for line in text.split('\n'):
-            if 'Notes:' in line:
-                in_notes = True
-            elif in_notes and line.strip():
-                notes_content.append(line.strip())
-                
-        if notes_content:
-            sections.append(PDFSection(
-                section_type='notes',
-                content='\n'.join(notes_content)
-            ))
-            
-        return sections
-
-    def _extract_diagram_path(self, text: str) -> Optional[str]:
-        """Extract diagram path from the PDF."""
-        if not self.current_file:
-            return None
-            
-        with pdfplumber.open(Path(self.current_file)) as pdf:
-            first_page = pdf.pages[0]
-            # Extract images from the page
-            images = first_page.images
-            if images:
-                # Extract just the model number from the filename
-                pdf_name = os.path.basename(self.current_file)
-                # Remove UUID prefix and file extension
-                model = (pdf_name.split('_')[-1]
-                        .replace('-Series.pdf', '')
-                        .replace('-Series-Rev-K.pdf', ''))
-                return f"diagrams/{model}.png"
-        return None
-
-    def process_pdf(self, pdf_path: str) -> PDFDocument:
-        """Process a PDF file and return structured data."""
-        text = self._extract_text(pdf_path)
-        sections = self._extract_sections(text)
-        diagram_path = self._extract_diagram_path(text)
+                section_name = self._determine_section_type(text, pos)
+                formatted_name = self._format_section_name(section_name)
+                sections[formatted_name] = SectionData(
+                    categories={
+                        cat: CategorySpec(subcategories={
+                            "": {  # Using empty string as default subcategory
+                                subcat: spec for subcat, spec in subcats.items()
+                            }
+                        })
+                        for cat, subcats in specs.items()
+                    }
+                )
         
-        # Create diagrams directory if it doesn't exist
-        if diagram_path:
-            os.makedirs("diagrams", exist_ok=True)
+        # Parse features and advantages
+        features_advantages = self._parse_features_advantages(text)
         
-        return PDFDocument(
+        # Extract notes
+        notes = self._extract_notes(text)
+        
+        # Create and return document with sections first
+        return PDFData(
             sections=sections,
-            diagram_path=diagram_path
+            features_advantages={
+                'features': features_advantages['features'],
+                'advantages': features_advantages['advantages']
+            } if features_advantages else None,
+            notes={'notes': '\n'.join(notes)} if notes else None
         )

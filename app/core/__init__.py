@@ -1,10 +1,5 @@
-from .pdf_processor import PDFProcessor, PDFDocument, PDFSection
-from .vector_store import VectorStore, VectorEntry
+from .pdf_processor import PDFProcessor
 
 __all__ = [
-    'PDFProcessor',
-    'PDFDocument',
-    'PDFSection',
-    'VectorStore',
-    'VectorEntry'
+    'PDFProcessor'
 ]
