@@ -1,11 +1,14 @@
-from .comparison import ComparisonResult, compare_models, create_specs_df
+"""Models for PDF processing and comparison."""
 from .pdf import PDFData, SectionData, CategorySpec, SpecValue
 from .pdf_tables import PDFTables, Table
+from .features import ModelSpecs
+from .comparison import ComparisonResult, SpecsDataFrame, SpecRow
 
 __all__ = [
     "ComparisonResult",
-    "compare_models",
-    "create_specs_df",
+    "ModelSpecs",
+    "SpecsDataFrame",
+    "SpecRow",
     "PDFData",
     "SectionData",
     "CategorySpec",

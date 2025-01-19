@@ -21,61 +21,61 @@ class UnitStandard(BaseModel):
 
 class UnitStandardizer:
     """Handles standardization of units across the application."""
-    
+
     # Standard unit mappings
     STANDARD_UNITS: Dict[str, UnitStandard] = {
         # Temperature
         "°C": UnitStandard(
-            symbol="°C", 
-            display="°C", 
+            symbol="°C",
+            display="°C",
             type=UnitType.TEMPERATURE
         ),
         "°F": UnitStandard(
-            symbol="°F", 
-            display="°F", 
+            symbol="°F",
+            display="°F",
             type=UnitType.TEMPERATURE
         ),
         # Resistance
         "ohm": UnitStandard(
-            symbol="Ω", 
-            display="Ω", 
+            symbol="Ω",
+            display="Ω",
             type=UnitType.RESISTANCE
         ),
         "ohms": UnitStandard(
-            symbol="Ω", 
-            display="Ω", 
+            symbol="Ω",
+            display="Ω",
             type=UnitType.RESISTANCE
         ),
         "Ohm": UnitStandard(
-            symbol="Ω", 
-            display="Ω", 
+            symbol="Ω",
+            display="Ω",
             type=UnitType.RESISTANCE
         ),
         "Ohms": UnitStandard(
-            symbol="Ω", 
-            display="Ω", 
+            symbol="Ω",
+            display="Ω",
             type=UnitType.RESISTANCE
         ),
         # Add more standardizations as needed
     }
-    
+
     @classmethod
     def standardize_unit(cls, unit: Optional[str]) -> Optional[str]:
         """Standardize a unit string to its canonical form."""
         if not unit:
             return None
-            
+
         # Handle temperature units with qualifiers
         if "°" in unit:
             if "°C" in unit:
                 return cls.STANDARD_UNITS["°C"].display
             elif "°F" in unit:
                 return cls.STANDARD_UNITS["°F"].display
-                
+
         # Handle resistance units
         if any(unit.lower().startswith(ohm) for ohm in ["ohm", "Ohm"]):
             return cls.STANDARD_UNITS["ohm"].display
-            
+
         # If no standardization needed, return as is
         return unit
 
@@ -85,7 +85,7 @@ class TransformedSpecValue(BaseModel):
     raw_unit: Optional[str] = None
     standardized_unit: Optional[str] = None
     value: str
-    
+
     @model_validator(mode='before')
     def standardize_units(cls, data: dict) -> dict:
         """Standardize units before validation."""
@@ -98,14 +98,14 @@ class TransformedSpecValue(BaseModel):
 
 class SpecTransformer:
     """Handles transformation of specification values."""
-    
+
     @staticmethod
     def transform_spec(
-        unit: Optional[str], 
+        unit: Optional[str],
         value: str
     ) -> TransformedSpecValue:
         """Transform a specification value, standardizing its unit."""
         return TransformedSpecValue(
             raw_unit=unit,
             value=value
-        ) 
+        )

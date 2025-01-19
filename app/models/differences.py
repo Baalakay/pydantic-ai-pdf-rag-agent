@@ -31,27 +31,29 @@ class Differences(BaseModel):
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame) -> "Differences":
         """Create from a pandas DataFrame."""
-        differences = []
+        differences: List[Difference] = []
         if df.empty:
             return cls(differences=differences)
-            
+
         # Get model columns (non-metadata columns)
-        model_cols = [col for col in df.columns 
-                     if col not in ["Category", "Specification"]]
-        
+        model_cols = [
+            col for col in df.columns
+            if col not in ["Category", "Specification"]
+        ]
+
         # Process each row
         for _, row in df.iterrows():
             # Get model-specific values
             values = {
                 model: str(row[model]).strip()
                 for model in model_cols
-                if (str(row[model]).strip() and 
+                if (str(row[model]).strip() and
                     str(row[model]).lower() != 'nan')
             }
-            
+
             if len(values) < 2:  # Skip if not enough models have values
                 continue
-                
+
             # Split specification into parts
             spec = row["Specification"]
             unit = None
@@ -62,12 +64,12 @@ class Differences(BaseModel):
                 if unit_start > 0 and unit_end > unit_start:
                     unit = spec[unit_start + 1:unit_end].strip()
                     spec = spec[:unit_start].strip()
-            
+
             # Split category and subcategory
             parts = spec.split(" - ", 1)
             subcategory = parts[1] if len(parts) > 1 else ""
             category = parts[0]
-                
+
             diff = Difference(
                 category=category,
                 subcategory=subcategory,
@@ -77,7 +79,7 @@ class Differences(BaseModel):
             # Only add if values are actually different
             if diff.has_differences():
                 differences.append(diff)
-        
+
         return cls(differences=differences)
 
     def add_difference(
@@ -100,4 +102,4 @@ class Differences(BaseModel):
 
     def has_differences(self) -> bool:
         """Check if there are any differences."""
-        return any(diff.has_differences() for diff in self.differences) 
+        return any(diff.has_differences() for diff in self.differences)

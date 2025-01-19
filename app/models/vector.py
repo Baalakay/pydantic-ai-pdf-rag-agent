@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class VectorEntry(BaseModel):
     """Represents a vector entry in the vector store."""
-    
+
     id: UUID = Field(
         ...,
         description="Unique identifier for the vector entry"
