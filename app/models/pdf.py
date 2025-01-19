@@ -3,7 +3,7 @@ from pydantic import BaseModel, model_validator, ConfigDict
 from pathlib import Path
 import re
 import os
-from .transformers import TransformedSpecValue, SpecTransformer
+from app.services.transformers import TransformedSpecValue, SpecTransformer
 
 
 class SpecValue(BaseModel):

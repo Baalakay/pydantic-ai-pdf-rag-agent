@@ -44,7 +44,7 @@ class PDFProcessor:
             page = pdf.pages[0]
 
             # Extract features from left box
-            feat_box = (0, 120, 295, 210)
+            feat_box = (0, 130, 295, 210)
             feat_area = page.within_bbox(feat_box)
             feat_text = feat_area.extract_text()
             if feat_text:
@@ -55,7 +55,7 @@ class PDFProcessor:
                         features.append(line)
 
             # Extract advantages from right box
-            adv_box = (300, 120, 610, 210)
+            adv_box = (300, 130, 610, 210)
             adv_area = page.within_bbox(adv_box)
             adv_text = adv_area.extract_text()
             if adv_text:

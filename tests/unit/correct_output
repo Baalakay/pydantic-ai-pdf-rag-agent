@@ -1,0 +1,163 @@
+{
+  "sections": {
+    "features_advantages": {
+      "categories": {
+        "features": {
+          "subcategories": {
+            "": {
+              "unit": null,
+              "value": "Hermetically sealed Rhodium contacts, Materials are Lead free and RoHS compliant, Industry standard size"
+            }
+          }
+        },
+        "advantages": {
+          "subcategories": {
+            "": {
+              "unit": null,
+              "value": "Extended operations in extreme environments, Not ESD sensitive, Excellent historical performance, Ideal for reed relays"
+            }
+          }
+        }
+      }
+    },
+    "Electrical Specifications": {
+      "categories": {
+        "Power": {
+          "subcategories": {
+            "": {
+              "unit": "Watts - maximum",
+              "value": "3"
+            }
+          }
+        },
+        "Voltage": {
+          "subcategories": {
+            "Switching": {
+              "unit": "VDC - maximum",
+              "value": "120"
+            },
+            "Breakdown": {
+              "unit": "VDC - minimum",
+              "value": "400"
+            }
+          }
+        },
+        "Current": {
+          "subcategories": {
+            "Switching": {
+              "unit": "Amp - maximum",
+              "value": "0.25"
+            },
+            "Carry": {
+              "unit": "Amp - maximum",
+              "value": "2.0"
+            }
+          }
+        },
+        "Resistance": {
+          "subcategories": {
+            "Initial Contact Resistance": {
+              "unit": "Ohm - maximum",
+              "value": "0.15"
+            },
+            "Insulation Resistance": {
+              "unit": "Ohm - minimum",
+              "value": "1 E9"
+            }
+          }
+        },
+        "Capacitance": {
+          "subcategories": {
+            "Contact": {
+              "unit": "pF - typical",
+              "value": "1.7"
+            }
+          }
+        },
+        "Temperature": {
+          "subcategories": {
+            "Operating": {
+              "unit": "°C - maximum",
+              "value": "-40 to +125"
+            },
+            "Storage": {
+              "unit": "°C",
+              "value": "-40 to +200"
+            }
+          }
+        }
+      }
+    },
+    "Magnetic Specifications": {
+      "categories": {
+        "Pull - In Range": {
+          "subcategories": {
+            "": {
+              "unit": "Ampere Turns",
+              "value": "15-45"
+            }
+          }
+        },
+        "Test Coil": {
+          "subcategories": {
+            "": {
+              "unit": "NARM RS-421-A",
+              "value": "Coil II"
+            }
+          }
+        }
+      }
+    },
+    "Physical/Operational Specifications": {
+      "categories": {
+        "Capsule Volume": {
+          "subcategories": {
+            "Excluding Leads": {
+              "unit": "CC - nominal",
+              "value": "0.11"
+            }
+          }
+        },
+        "Contact Material": {
+          "subcategories": {
+            "": {
+              "unit": null,
+              "value": "Rhodium"
+            }
+          }
+        },
+        "Operate Time": {
+          "subcategories": {
+            "Including Bounce": {
+              "unit": "mSeconds - maximum",
+              "value": "1.00"
+            }
+          }
+        },
+        "Release Time": {
+          "subcategories": {
+            "": {
+              "unit": "mSeconds - maximum",
+              "value": "0.80"
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "categories": {
+        "notes": {
+          "subcategories": {
+            "": {
+              "unit": null,
+              "value": "(1) Specifications are not constant across entire magnetic range.\n(2) Customer must exercise care in handling, mounting, lead forming
+, and cutting to prevent damage to glass capsule and/or\n(3) For information about performance, custom configurations, mounting options or packaging contact o
+ur Sales department.\n(4) Information contained hereon is for informational purposes only and should not be deemed as accurate for a specific"
+            }
+          }
+        }
+      }
+    }
+  },
+  "diagram_path": "diagrams/520R.png"
+}

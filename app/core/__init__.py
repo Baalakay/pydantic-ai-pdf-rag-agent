@@ -1,4 +1,5 @@
-from .pdf_processor import PDFProcessor
+"""Core functionality module."""
+from .pdf import PDFProcessor
 
 __all__ = [
     'PDFProcessor'

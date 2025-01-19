@@ -1,12 +1,14 @@
 """Script to compare model specifications."""
-from app.models import ComparisonResult
+import asyncio
+from app.core.comparison.service import ComparisonService
 
 
-def main() -> None:
+async def main() -> None:
     """Run raw comparison to verify output."""
-    result = ComparisonResult.from_model_names(["520R", "630"])
-    print(result)
+    service = ComparisonService()
+    result = await service.compare_models(["980", "190R"])
+    print(str(result))
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
