@@ -12,6 +12,8 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 RUN python3 -m pip install --upgrade \
     setuptools==69.0.3 \
     gitpython==3.1.43
+
+RUN if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
     
 # [Optional] If your pip requirements rarely change, uncomment this section to add them to the image.
 # COPY requirements.txt /tmp/pip-tmp/

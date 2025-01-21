@@ -1,9 +1,9 @@
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any, cast
 from pydantic import BaseModel, model_validator, ConfigDict
 from pathlib import Path
 import re
-import os
-from app.services.transformers import TransformedSpecValue, SpecTransformer
+from app.core.transformers import TransformedSpecValue, SpecTransformer
+from app.core.config import get_settings
 
 
 class SpecValue(BaseModel):
@@ -11,7 +11,7 @@ class SpecValue(BaseModel):
     unit: Optional[str] = None
     value: Union[str, float, int]
     transformed: Optional[TransformedSpecValue] = None
-    
+
     @model_validator(mode='after')
     def transform_value(self) -> 'SpecValue':
         """Transform the value after validation."""
@@ -20,12 +20,12 @@ class SpecValue(BaseModel):
             value=str(self.value)
         )
         return self
-        
+
     def model_dump(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         """Override model_dump to exclude transformed field."""
         kwargs['exclude'] = {'transformed'} | kwargs.get('exclude', set())
         return super().model_dump(*args, **kwargs)
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "exclude": ["transformed"]
@@ -54,7 +54,7 @@ class PDFData(BaseModel):
     sections: Dict[str, SectionData]
     notes: Optional[Dict[str, str]] = None
     diagram_path: Optional[str] = None
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "required": ["sections"],
@@ -79,24 +79,27 @@ class PDFLocator(BaseModel):
     ) -> Optional[Path]:
         """Find a PDF file based on a model keyword."""
         if pdf_dir is None:
-            pdf_dir = Path("uploads/pdfs")
-            
+            settings = get_settings()
+            pdf_dir = cast(Path, settings.PDF_DIR)
+
+        if not pdf_dir.exists():
+            return None
+
         clean_keyword = (
             model_keyword.upper()
             .replace('HSR-', '')
             .replace('HSR', '')
         )
 
-        for filename in os.listdir(pdf_dir):
-            if filename.endswith('.pdf'):
-                match = re.search(
-                    r'HSR-(\d+[RFW]?)-',
-                    filename,
-                    re.IGNORECASE
-                )
-                if match:
-                    model_number = match.group(1)
-                    if (clean_keyword in model_number or
-                            model_number in clean_keyword):
-                        return pdf_dir / filename
+        for pdf_path in pdf_dir.glob("*.pdf"):
+            match = re.search(
+                r'HSR-(\d+[RFW]?)-',
+                pdf_path.name,
+                re.IGNORECASE
+            )
+            if match:
+                model_number = match.group(1)
+                if (clean_keyword in model_number or
+                        model_number in clean_keyword):
+                    return pdf_path
         return None

@@ -46,15 +46,10 @@
                 "terminal.integrated.profiles.osx": { "zsh": { "path": "/bin/zsh", "args": ["-l", "-i"] } }
             },
             "extensions": [
-                "charliermarsh.ruff",
                 "ms-python.vscode-pylance",
                 "ms-python.mypy-type-checker",
-                "esbenp.prettier-vscode",
-                "ms-vscode-remote.vscode-remote-extensionpack",
                 "ms-vscode.remote-explorer",
                 "ms-vscode-remote.remote-containers",
-                "ms-vscode-remote.remote-ssh",
-                "ms-vscode-remote.remote-ssh-edit",
                 "ms-python.flake8",
                 "ms-python.black-formatter"
             ]
@@ -73,5 +68,5 @@
 
 	// Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
 
-	"postCreateCommand": "bash .devcontainer/post-create.sh"
+	"postCreateCommand": "bash .devcontainer/post-create.sh  && pip install -r requirements.txt"
 }

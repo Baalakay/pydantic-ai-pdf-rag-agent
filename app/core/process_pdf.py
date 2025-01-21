@@ -2,9 +2,11 @@
 from typing import Dict, List, Optional
 from pathlib import Path
 import pdfplumber
+import fitz  # type: ignore  # PyMuPDF
 from app.models.pdf import (
     PDFData, SectionData, CategorySpec, SpecValue
 )
+import re
 
 
 class PDFProcessor:
@@ -255,21 +257,43 @@ class PDFProcessor:
 
         return notes
 
-    def _extract_model_name(self, text: str) -> str:
-        """Extract the model name from the text."""
-        lines = text.split('\n')
-        for line in lines:
-            if 'HSR-' in line:
-                # Extract HSR- part up to first space
-                model_parts = line.split()
-                for part in model_parts:
-                    if 'HSR-' in part:
-                        # Keep alphanumeric and hyphen
-                        model = ''.join(
-                            c for c in part
-                            if c.isalnum() or c == '-'
-                        )
-                        return model
+    def _extract_model_name(self, filename: str) -> str:
+        """Extract the model name from the PDF content.
+
+        Args:
+            filename: Name of the PDF file (used as fallback)
+
+        Returns:
+            str: Model name (e.g., '100R') or empty string if not found
+        """
+        if not self.current_file:
+            return ""
+
+        # First try to extract from PDF content
+        with pdfplumber.open(self.current_file) as pdf:
+            first_page = pdf.pages[0]
+            text = first_page.extract_text()
+
+            # Look for HSR- pattern in the text
+            lines = text.split('\n')
+            for line in lines:
+                if 'HSR-' in line.upper():
+                    # Extract HSR-XXXR/F/W pattern
+                    parts = line.split()
+                    for part in parts:
+                        if 'HSR-' in part.upper():
+                            # Extract just the model number (e.g., HSR-100R)
+                            match = re.search(r'HSR-(\d+[RFW]?)', part, re.IGNORECASE)
+                            if match:
+                                # Return just the number and optional suffix
+                                return match.group(1).upper()
+
+        # Fallback: Try to extract from filename
+        if filename:
+            match = re.search(r'HSR-(\d+[RFW]?)', filename, re.IGNORECASE)
+            if match:
+                return match.group(1).upper()
+
         return ""
 
     def _format_section_name(self, name: str) -> str:
@@ -287,6 +311,63 @@ class PDFProcessor:
             formatted = formatted.replace('__', '_')
         # Remove leading/trailing underscores and convert to title case
         return formatted.strip('_').title()
+
+    def _extract_model_diagram(self, output_dir: Path = Path("data/diagrams")) -> Optional[str]:
+        """Extract the model diagram image from the PDF.
+
+        Args:
+            output_dir: Directory to save the diagram image
+
+        Returns:
+            Optional[str]: Path to the saved image if successful, None otherwise
+        """
+        if not self.current_file:
+            return None
+
+        # Ensure output directory exists
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            doc = fitz.open(self.current_file)
+            page = doc[0]  # First page
+
+            # Get list of images on the page
+            image_list = page.get_images()
+
+            if image_list:
+                # Find the largest image (likely the diagram)
+                largest_image = None
+                max_size = 0
+
+                for img_idx, img in enumerate(image_list):
+                    xref = img[0]
+                    base_image = doc.extract_image(xref)
+
+                    # Calculate image size
+                    size = base_image["width"] * base_image["height"]
+                    if size > max_size:
+                        max_size = size
+                        largest_image = base_image
+
+                if largest_image:
+                    # Extract model name from PDF content
+                    model_name = self._extract_model_name(self.current_file.name)
+                    if model_name:
+                        # Create output filename with just the model name
+                        output_path = output_dir / f"{model_name}.png"
+
+                        # Save image
+                        with open(output_path, "wb") as f:
+                            f.write(largest_image["image"])
+
+                        return str(output_path)
+        except Exception as e:
+            print(f"Error extracting image: {e}")
+        finally:
+            if 'doc' in locals():
+                doc.close()
+
+        return None
 
     def process_pdf(self, filename: str) -> PDFData:
         """Process PDF file and extract structured data."""
@@ -345,13 +426,11 @@ class PDFProcessor:
 
         # Extract notes
         notes = self._extract_notes(text)
+        notes_dict = {str(i + 1): note for i, note in enumerate(notes)} if notes else None
 
-        # Extract model name for diagram path
-        model_name = self._extract_model_name(text)
-        diagram_path = f"diagrams/{model_name}.png" if model_name else None
+        # Extract diagram
+        diagram_path = self._extract_model_diagram()
 
-        # Build final result
-        notes_dict = {'notes': '\n'.join(notes)} if notes else None
         return PDFData(
             sections=sections,
             notes=notes_dict,

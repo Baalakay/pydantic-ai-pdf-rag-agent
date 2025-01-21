@@ -1,18 +1,18 @@
-"""Analyzer for model specification differences."""
+"""Analyzer for processing differences between models."""
 from typing import Dict, List
 import pandas as pd
 
 from app.models.differences import Differences, Difference
 
 
-class DifferenceAnalyzer:
-    """Analyzer for model specification differences."""
+class DifferenceProcessor:
+    """Processor for analyzing differences between models."""
 
     @staticmethod
     def analyze_differences(df: pd.DataFrame) -> Differences:
         """Analyze differences between model specifications."""
         differences = Differences()
-        
+
         if df.empty:
             return differences
 
@@ -68,13 +68,13 @@ class DifferenceAnalyzer:
     ) -> str:
         """Format a difference for display."""
         parts = []
-        
+
         # Add category and subcategory
         if diff.subcategory:
             parts.append(f"{diff.category} - {diff.subcategory}")
         else:
             parts.append(diff.category)
-            
+
         # Add values with units if requested
         values_str = []
         for model, value in diff.values.items():
@@ -82,9 +82,9 @@ class DifferenceAnalyzer:
                 values_str.append(f"{model}: {value} {diff.unit}")
             else:
                 values_str.append(f"{model}: {value}")
-                
+
         parts.append(", ".join(values_str))
-        
+
         return ": ".join(parts)
 
     @staticmethod
@@ -94,20 +94,20 @@ class DifferenceAnalyzer:
             return "No significant differences found."
 
         summary_parts = []
-        
+
         # Group differences by category
         by_category: Dict[str, List[Difference]] = {}
         for diff in differences.differences:
             if diff.category not in by_category:
                 by_category[diff.category] = []
             by_category[diff.category].append(diff)
-            
+
         # Create summary for each category
         for category, diffs in by_category.items():
             summary_parts.append(f"\n{category}:")
             for diff in diffs:
                 summary_parts.append(
-                    f"  - {DifferenceAnalyzer.format_difference(diff)}"
+                    f"  - {DifferenceProcessor.format_difference(diff)}"
                 )
-                
+
         return "\n".join(summary_parts)

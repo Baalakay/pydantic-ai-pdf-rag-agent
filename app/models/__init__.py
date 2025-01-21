@@ -1,18 +1,14 @@
-"""Models for PDF processing and comparison."""
-from .pdf import PDFData, SectionData, CategorySpec, SpecValue
-from .pdf_tables import PDFTables, Table
-from .features import ModelSpecs
+"""Models package initialization."""
 from .comparison import ComparisonResult, SpecsDataFrame, SpecRow
+from .differences import Differences
+from .ai_findings import AIFindings
+from .features import ModelSpecs
 
 __all__ = [
-    "ComparisonResult",
-    "ModelSpecs",
-    "SpecsDataFrame",
-    "SpecRow",
-    "PDFData",
-    "SectionData",
-    "CategorySpec",
-    "SpecValue",
-    "PDFTables",
-    "Table",
+    'ComparisonResult',
+    'SpecsDataFrame',
+    'SpecRow',
+    'Differences',
+    'AIFindings',
+    'ModelSpecs'
 ]

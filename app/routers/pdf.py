@@ -1,31 +1,44 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from typing import List, Dict, Any
-import os
+from fastapi.responses import FileResponse
+from typing import List, Dict, Any, cast
 from pydantic import BaseModel
 import logging
 from ..core import PDFProcessor
 from ..core.vector_store import VectorStore
 from openai import OpenAI
+from ..core.config import get_settings
+from pathlib import Path
+
 
 logger = logging.getLogger(__name__)
 
+
 router = APIRouter(prefix="/pdf", tags=["pdf"])
+
 
 class PDFResponse(BaseModel):
     """Response model for PDF operations."""
     filename: str
     page_count: int
-    metadata: Dict[str, str]
+    metadata: Dict[str, Any]
+
 
 def get_pdf_processor() -> PDFProcessor:
     """Dependency to get PDF processor instance."""
-    storage_path = os.getenv("PDF_STORAGE_PATH", "uploads/pdfs")
-    return PDFProcessor(storage_path)
+    settings = get_settings()
+    processor = PDFProcessor()
+    pdf_dir = cast(Path, settings.PDF_DIR)
+    if not pdf_dir.exists():
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+    processor.current_file = pdf_dir
+    return processor
+
 
 async def get_vector_store() -> VectorStore:
     """Dependency to get vector store instance."""
     openai_client = OpenAI()
     return VectorStore(openai_client)
+
 
 @router.post("/upload", response_model=PDFResponse)
 async def upload_pdf(
@@ -44,33 +57,36 @@ async def upload_pdf(
 
     try:
         # Save the uploaded file
-        filename = file.filename
-        file_path = os.path.join(pdf_processor.storage_path, filename)
+        if not pdf_processor.current_file or not isinstance(pdf_processor.current_file, Path):
+            raise HTTPException(status_code=500, detail="PDF directory not configured")
+
+        file_path = pdf_processor.current_file / file.filename
         with open(file_path, "wb") as pdf_file:
             content = await file.read()
             pdf_file.write(content)
 
         # Process the PDF
-        document = pdf_processor.process_pdf(filename)
+        document = pdf_processor.process_pdf(str(file_path))
 
         # Add sections to vector store
-        for section in document.sections:
-            logger.info(f"Adding section to vector store: {section.content[:100]}...")
+        for section_name, section_data in document.sections.items():
+            logger.info(f"Adding section to vector store: {section_name}...")
             await vector_store.add_entry(
-                content=section.content,
-                filename=section.filename,
-                page_number=section.page_number
+                content=str(section_data),
+                filename=file.filename,
+                page_number=1  # TODO: Add actual page number tracking
             )
 
         return PDFResponse(
-            filename=document.filename,
-            page_count=int(document.metadata["page_count"]),
-            metadata=document.metadata
+            filename=file.filename,
+            page_count=len(document.sections),
+            metadata={"sections": [str(s) for s in document.sections.keys()]}
         )
 
     except Exception as e:
         logger.error(f"Error processing PDF upload: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
+
 
 @router.get("/list", response_model=List[PDFResponse])
 async def list_pdfs(
@@ -81,20 +97,23 @@ async def list_pdfs(
         List of PDFResponse objects
     """
     try:
+        if not pdf_processor.current_file or not isinstance(pdf_processor.current_file, Path):
+            raise HTTPException(status_code=500, detail="PDF directory not configured")
+
         pdfs = []
-        for filename in os.listdir(pdf_processor.storage_path):
-            if filename.lower().endswith('.pdf'):
-                document = pdf_processor.process_pdf(filename)
-                pdfs.append(PDFResponse(
-                    filename=document.filename,
-                    page_count=int(document.metadata["page_count"]),
-                    metadata=document.metadata
-                ))
+        for file_path in pdf_processor.current_file.glob("*.pdf"):
+            document = pdf_processor.process_pdf(str(file_path))
+            pdfs.append(PDFResponse(
+                filename=file_path.name,
+                page_count=len(document.sections),
+                metadata={"sections": [str(s) for s in document.sections.keys()]}
+            ))
         return pdfs
 
     except Exception as e:
         logger.error(f"Error listing PDFs: {str(e)}")
         raise HTTPException(status_code=500, detail="Error listing PDFs")
+
 
 @router.delete("/{filename}")
 async def delete_pdf(
@@ -108,11 +127,14 @@ async def delete_pdf(
         Message indicating success
     """
     try:
-        file_path = os.path.join(pdf_processor.storage_path, filename)
-        if not os.path.exists(file_path):
+        if not pdf_processor.current_file or not isinstance(pdf_processor.current_file, Path):
+            raise HTTPException(status_code=500, detail="PDF directory not configured")
+
+        file_path = pdf_processor.current_file / filename
+        if not file_path.exists():
             raise HTTPException(status_code=404, detail="PDF not found")
 
-        os.remove(file_path)
+        file_path.unlink()
         return {"message": f"PDF {filename} deleted successfully"}
 
     except HTTPException:
@@ -120,6 +142,7 @@ async def delete_pdf(
     except Exception as e:
         logger.error(f"Error deleting PDF: {str(e)}")
         raise HTTPException(status_code=500, detail="Error deleting PDF")
+
 
 @router.get("/vector-entries")
 async def list_vector_entries(
@@ -139,25 +162,28 @@ async def list_vector_entries(
         logger.error(f"Error listing vector entries: {str(e)}")
         raise HTTPException(status_code=500, detail="Error listing vector entries")
 
+
 @router.get("/download/{filename}")
 async def download_pdf(
     filename: str,
     pdf_processor: PDFProcessor = Depends(get_pdf_processor)
-) -> Any:
+) -> FileResponse:
     """Download a PDF file.
     Args:
         filename: Name of the PDF file to download
     Returns:
         FileResponse containing the PDF
     """
-    from fastapi.responses import FileResponse
     try:
-        file_path = os.path.join(pdf_processor.storage_path, filename)
-        if not os.path.exists(file_path):
+        if not pdf_processor.current_file or not isinstance(pdf_processor.current_file, Path):
+            raise HTTPException(status_code=500, detail="PDF directory not configured")
+
+        file_path = pdf_processor.current_file / filename
+        if not file_path.exists():
             raise HTTPException(status_code=404, detail="PDF not found")
 
         return FileResponse(
-            file_path,
+            str(file_path),
             media_type="application/pdf",
             filename=filename
         )

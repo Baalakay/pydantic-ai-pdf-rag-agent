@@ -32,10 +32,9 @@ def extract_advantages():
             print(text)
     return ''
 
-       
 
-if __name__ == '__main__': 
+
+if __name__ == '__main__':
     #print(extract_text_bbox_keep_chars())
     print(extract_features())
     print(extract_advantages())
-    

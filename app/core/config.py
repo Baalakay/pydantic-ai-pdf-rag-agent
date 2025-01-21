@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Application settings using Pydantic BaseSettings.
-    
+
     Attributes:
         BASE_DIR: Base directory for the application
         UPLOADS_DIR: Directory for uploaded files
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Configurable paths with defaults relative to BASE_DIR
     UPLOADS_DIR: Path = Field(
-        default_factory=lambda: Settings.BASE_DIR / "uploads",
+        default_factory=lambda: Settings.BASE_DIR / "data",
         description="Directory for uploaded files"
     )
 
@@ -46,4 +46,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings() 
+    return Settings()

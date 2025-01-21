@@ -4,10 +4,19 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 import pandas as pd
 
 from .differences import Differences
-from .llm_findings import LLMFindings
+from .ai_findings import AIFindings
 from .features import ModelSpecs
 
 SectionType = Literal["features", "advantages"]
+
+
+class SpecDifference(BaseModel):
+    """Represents a difference in specifications between models."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    category: str = Field(description="Category of the specification")
+    specification: str = Field(description="Name of the specification")
+    values: Dict[str, str] = Field(description="Values for each model")
 
 
 class SpecRow(BaseModel):
@@ -65,7 +74,7 @@ class SpecsDataFrame(BaseModel):
             return pd.DataFrame()
         model_names = [model.model_name for model in models]
         rows: List[SpecRow] = []
-        
+
         if section_name in ("features", "advantages"):
             # Create a mapping of features/advantages to their models
             item_models: Dict[str, List[str]] = {}
@@ -77,7 +86,7 @@ class SpecsDataFrame(BaseModel):
                     if item not in item_models:
                         item_models[item] = []
                     item_models[item].append(model.model_name)
-            
+
             # Create SpecRow for each unique item
             for item, model_list in item_models.items():
                 # Clean values before creating SpecRow
@@ -101,25 +110,25 @@ class SpecsDataFrame(BaseModel):
             section = model.sections.get(section_name)
             if not section:
                 continue
-            
+
             # Process each category in the section
             for category, cat_data in section.categories.items():
                 if category not in spec_rows:
                     spec_rows[category] = {}
-                
+
                 # Process subcategories
                 for subcat, spec_value in cat_data.subcategories.items():
                     spec_key = subcat if subcat else category
                     if spec_key not in spec_rows[category]:
                         spec_rows[category][spec_key] = {}
-                    
+
                     # Format the value with unit if present
                     display_value = str(spec_value.value)
                     if spec_value.unit:
                         display_value = f"{display_value} {spec_value.unit}"
-                    
+
                     spec_rows[category][spec_key][model.model_name] = display_value.strip()
-        
+
         # Convert processed data to SpecRows
         for category, subcats in spec_rows.items():
             for spec_name, values in subcats.items():
@@ -129,7 +138,7 @@ class SpecsDataFrame(BaseModel):
                         specification=spec_name.strip(),
                         values=values
                     ))
-        
+
         return cls(rows=rows, model_names=model_names).to_dataframe()
 
     @model_validator(mode="after")
@@ -199,7 +208,7 @@ class ComparisonResult(BaseModel):
         default_factory=Differences,
         description="Collection of differences between models"
     )
-    findings: Optional[LLMFindings] = Field(
+    findings: Optional[AIFindings] = Field(
         default=None,
         description="AI analysis of the differences"
     )

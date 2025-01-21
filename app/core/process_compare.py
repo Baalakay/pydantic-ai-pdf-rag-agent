@@ -1,29 +1,23 @@
 """Service for comparing PDF specifications."""
-from typing import Dict, List, Set, Optional, Any
+from typing import Dict, List, Optional, Any, cast
 import pandas as pd
-from pydantic import BaseModel
 from app.models.comparison import ComparisonResult
-from app.core.pdf import PDFProcessor
+from app.core.process_pdf import PDFProcessor
 from app.models.pdf import PDFLocator, PDFData, SpecValue, SectionData
-from app.models.llm_findings import LLMFindings
+from app.models.ai_findings import AIFindings
 from app.models.features import ModelSpecs
+from app.core.config import get_settings
 from pathlib import Path
 
 
-class SpecDifference(BaseModel):
-    """Represents a difference in specifications between models."""
-    category: str
-    specification: str
-    values: Dict[str, str]
-
-
-class ComparisonService:
-    """Service for comparing model specifications."""
+class ComparisonProcessor:
+    """Processor for comparing PDFs."""
 
     def __init__(self) -> None:
-        """Initialize the comparison service."""
-        self.processor = PDFProcessor()
-        self.pdf_dir = Path("uploads/pdfs")
+        """Initialize the comparison processor."""
+        self.pdf_processor = PDFProcessor()
+        settings = get_settings()
+        self.pdf_dir = settings.PDF_DIR
 
     def _convert_to_model_specs(self, name: str, data: PDFData) -> ModelSpecs:
         """Convert PDFData to ModelSpecs."""
@@ -33,7 +27,7 @@ class ComparisonService:
             for category in ["Features", "Advantages"]:
                 if category in section.categories:
                     spec_value = section.categories[category].subcategories.get("")
-                    if (isinstance(spec_value, SpecValue) and 
+                    if (isinstance(spec_value, SpecValue) and
                             isinstance(spec_value.value, str)):
                         features_advantages[category.lower()] = [
                             line.strip() for line in spec_value.value.split("\n")
@@ -69,39 +63,39 @@ class ComparisonService:
         specs_df, spec_differences = self._process_specifications(models, model_names, sections)
 
         # Generate AI analysis if there are differences
-        llm_findings: Optional[LLMFindings] = None
+        ai_findings: Optional[AIFindings] = None
         if spec_differences:
-            # Convert differences to format expected by LLMFindings.analyze
+            # Convert differences to format expected by AIFindings.analyze
             analysis_data: Dict[str, Dict[str, str]] = {}
             for diff in spec_differences:
                 category_str = str(diff.get("Category", ""))
                 spec_str = str(diff.get("Specification", ""))
                 if not (category_str and spec_str):
                     continue
-                    
+
                 values = {
                     k: str(v) for k, v in diff.items()
                     if k not in ["Category", "Specification"]
                 }
                 key = f"{category_str} - {spec_str}"
                 analysis_data[key] = values
-            
-            llm_findings = await LLMFindings.analyze(model_names, analysis_data)
+
+            ai_findings = await AIFindings.analyze(model_names, analysis_data)
 
         return ComparisonResult(
             features_df=features_df,
             advantages_df=advantages_df,
             specs_df=specs_df,
             spec_differences_df=pd.DataFrame(spec_differences) if spec_differences else pd.DataFrame(),
-            findings=llm_findings
+            findings=ai_findings
         )
 
     def _collect_model_data(self, model_names: List[str]) -> Dict[str, PDFData]:
         """Collect PDF data for each model."""
         models: Dict[str, PDFData] = {}
         for name in model_names:
-            if pdf_path := PDFLocator.find_pdf_by_model(name, self.pdf_dir):
-                models[name] = self.processor.process_pdf(str(pdf_path))
+            if pdf_path := PDFLocator.find_pdf_by_model(name, cast(Path, self.pdf_dir)):
+                models[name] = self.pdf_processor.process_pdf(str(pdf_path))
         return models
 
     def _get_ordered_sections(self, models: Dict[str, PDFData]) -> List[str]:
@@ -128,14 +122,14 @@ class ComparisonService:
 
             # Get ordered specs from first model that has this section
             ordered_specs = self._get_ordered_specs(models, section)
-            
+
             # Create rows with values for all models
             for category, specification in ordered_specs:
                 row = {
                     "Category": category,
                     "Specification": specification
                 }
-                
+
                 # Add values for each model
                 values = {}
                 for name in model_names:
@@ -145,9 +139,9 @@ class ComparisonService:
                         row[name] = value
                         if value:
                             values[name] = value
-                
+
                 all_specs.append(row)
-                
+
                 # Check for differences
                 if len(set(values.values())) > 1:
                     spec_differences.append({
@@ -172,7 +166,7 @@ class ComparisonService:
                     diagram_row[name] = ""
             else:
                 diagram_row[name] = ""
-        
+
         if has_diagrams:
             all_specs.append(diagram_row)
 
@@ -185,7 +179,7 @@ class ComparisonService:
     ) -> List[tuple[str, str]]:
         """Get specs in order from the first model that has this section."""
         ordered_specs = []
-        
+
         # Find first model with this section
         for model in models.values():
             if section in model.sections:
@@ -198,7 +192,7 @@ class ComparisonService:
                             (category_name, subcat_name if subcat_name else category_name)
                         )
                 break
-                
+
         return ordered_specs
 
     def _get_spec_value(
@@ -240,12 +234,12 @@ class ComparisonService:
     ) -> pd.DataFrame:
         """Process features or advantages from models."""
         rows: List[Dict[str, Any]] = []
-        
+
         # Process each model in order
         for name in model_names:
             if name not in models:
                 continue
-                
+
             model = models[name]
             if "Features_And_Advantages" not in model.sections:
                 continue
@@ -266,7 +260,7 @@ class ComparisonService:
             lines = [line.strip() for line in value.value.split('\n') if line.strip()]
             processed_items = []
             current_item = ""
-            
+
             for line in lines:
                 # Check if line starts with bullet point or similar
                 if line.startswith('•') or line.startswith('-'):
@@ -279,7 +273,7 @@ class ComparisonService:
                         current_item = f"{current_item} {line}"
                     else:  # Handle case where first line might not have bullet
                         current_item = line
-            
+
             # Add last item if exists
             if current_item:
                 processed_items.append(current_item)
@@ -300,4 +294,3 @@ class ComparisonService:
         if not df.empty:
             df.rename(columns={"Specification": ""}, inplace=True)
         return df
-

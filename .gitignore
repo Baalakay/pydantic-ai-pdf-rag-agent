@@ -54,13 +54,18 @@ dmypy.json
 .logfire/
 
 # Project specific
-uploads/pdfs/*.pdf
-data/vector_store/*
+data/pdfs/*.pdf
+data/diagrams/*.png
+data/diagrams/*.jpg
+data/diagrams/*.jpeg
+data/diagrams/*.gif
+data/diagrams/*.bmp
+data/diagrams/*.tiff
+data/diagrams/*.ico
+data/diagrams/*.svg
+data/diagrams/*.webp
 .env.local
 .env.*.local
-
-# Dependencies
-node_modules/
 
 # Build
 *.pyc
