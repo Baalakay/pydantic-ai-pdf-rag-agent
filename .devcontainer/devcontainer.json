@@ -7,8 +7,7 @@
     "remoteUser": "vscode",
 	"remoteEnv": {
 		"LOCAL_WORKSPACE_FOLDER": "${containerWorkspaceFolder}",
-		"OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
-        "HOST_PROJECT_PATH": "${localWorkspaceFolder}"
+		"OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}"
 	},
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2":{
@@ -32,7 +31,7 @@
 		"ghcr.io/devcontainers-extra/features/fd:1": {},
 		"ghcr.io/devcontainers-extra/features/ruff:1": {},
 		"ghcr.io/kreemer/features/stow:1": {},
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
 	// Configure tool-specific properties.
 	"customizations": {
@@ -51,7 +50,9 @@
                 "ms-vscode.remote-explorer",
                 "ms-vscode-remote.remote-containers",
                 "ms-python.flake8",
-                "ms-python.black-formatter"
+                "ms-python.black-formatter",
+                "ms-azuretools.vscode-docker",
+                "igorjrd.docker-stats"
             ]
 		}
 	},

@@ -1,10 +1,6 @@
 """Script to compare model specifications."""
-import os
-import sys
-
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(project_root)
 import asyncio
+
 from backend.src.app.core.process_compare import ComparisonProcessor
 
 
