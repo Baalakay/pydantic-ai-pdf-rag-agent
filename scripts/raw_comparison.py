@@ -5,7 +5,7 @@ import sys
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 import asyncio
-from app.core.process_compare import ComparisonProcessor
+from backend.src.app.core.process_compare import ComparisonProcessor
 
 
 async def main(model_names):

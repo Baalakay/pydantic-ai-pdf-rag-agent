@@ -3,7 +3,7 @@ from pathlib import Path
 import httpx
 import asyncio
 from typing import List
-from app.core.config import get_settings
+from backend.src.app.core.config import get_settings
 
 
 async def process_pdfs() -> None:

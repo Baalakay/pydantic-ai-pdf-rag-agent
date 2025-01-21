@@ -1,0 +1,11 @@
+{
+  "name": "pdf-rag-agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "backend:dev": "cd backend && uvicorn src.app.main:app --reload",
+    "backend:install": "cd backend && pip install -r requirements.txt",
+    "backend:test": "cd backend && pytest",
+    "backend:lint": "cd backend && mypy src tests"
+  }
+} 
