@@ -1,18 +1,11 @@
 """Data models for comparison functionality."""
-from typing import Dict, List, Optional, ClassVar, Literal
+from typing import Dict, List, Optional, ClassVar, Literal, Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 import pandas as pd
-import logging
+
+from .differences import Differences
 from .ai_findings import AIFindings
 from .features import ModelSpecs
-
-print("\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-print("EXECUTING comparison.py")
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n")
-
-# Configure logging to show all debug messages
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 SectionType = Literal["features", "advantages"]
 
@@ -28,7 +21,7 @@ class SpecDifference(BaseModel):
 
 class SpecRow(BaseModel):
     """A row in the specification comparison."""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     category: str = Field(
         default="",
@@ -44,48 +37,17 @@ class SpecRow(BaseModel):
     )
 
     @model_validator(mode="before")
-    @classmethod
-    def validate_specification(cls, values):
-        """Ensure specification is empty if it matches category."""
-        logger.debug("Validating specification with values: %s", values)
-        
-        if isinstance(values, dict):
-            category = values.get("category", "").strip()
-            specification = values.get("specification", "").strip()
-            
-            logger.debug("Processing - category: '%s', specification: '%s'", category, specification)
-            
-            # If specification is empty or exactly matches category (case-sensitive),
-            # set specification to empty string to preserve empty subcategory keys
-            if (not specification or 
-                specification == category or 
-                specification.isspace() or
-                (category == specification and category in [
-                    "Test Coil", "Contact Material", "Release Time", "Pull - In Range"
-                ])):
-                logger.debug("Setting specification to empty (was: '%s')", specification)
-                values["specification"] = ""
-            else:
-                logger.debug("Keeping specification as '%s'", specification)
-            
-            logger.debug("Final specification: '%s'", values.get('specification', ''))
-        
-        return values
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_values(cls, values):
-        """Ensure all values are properly formatted strings."""
-        if isinstance(values, dict):
-            value_dict = values.get("values", {})
-            if not value_dict:
-                raise ValueError("Values dictionary cannot be empty")
-            values["values"] = {
-                k.strip(): v.strip() if isinstance(v, str) else str(v)
-                for k, v in value_dict.items()
-                if k.strip()  # Only filter out empty keys, preserve empty values
-            }
-        return values
+    def validate_values(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure all keys and values are non-empty strings."""
+        values = data.get("values", {})
+        if not values:
+            raise ValueError("Values dictionary cannot be empty")
+        data["values"] = {
+            k.strip(): v.strip()
+            for k, v in values.items()
+            if k.strip() and v.strip()
+        }
+        return data
 
 
 class SpecsDataFrame(BaseModel):
@@ -106,19 +68,15 @@ class SpecsDataFrame(BaseModel):
     )
 
     @classmethod
-    def from_models(cls, models: List[ModelSpecs], section_name: str) -> 'SpecsDataFrame':
+    def from_models(cls, models: List[ModelSpecs], section_name: str) -> pd.DataFrame:
         """Create a DataFrame from a list of models."""
-        # Validate model names
-        model_names = [model.model_name for model in models]
-        cls._validate_model_names(model_names)
-
-        # Initialize empty rows list and spec_rows dict
-        rows = []
+        rows: List[SpecRow] = []
         spec_rows: Dict[str, Dict[str, Dict[str, str]]] = {}
+        model_names = [model.model_name for model in models]
 
-        # Process each model
         for model in models:
-            # Get the section data
+            if not model.sections:
+                continue
             section = model.sections.get(section_name)
             if not section:
                 continue
@@ -130,11 +88,10 @@ class SpecsDataFrame(BaseModel):
 
                 # Process subcategories
                 for subcat, spec_value in cat_data.subcategories.items():
-                    # Always use empty string for specification when subcategory key is empty
-                    spec_key = ""
+                    spec_key = subcat if subcat else ""  # Empty string for no subcategory
                     if spec_key not in spec_rows[category]:
                         spec_rows[category][spec_key] = {}
-                    
+
                     # Format the value with unit if present
                     display_value = str(spec_value.value)
                     if spec_value.unit:
@@ -143,22 +100,16 @@ class SpecsDataFrame(BaseModel):
                     spec_rows[category][spec_key][model.model_name] = display_value.strip()
 
         # Convert processed data to SpecRows
-        for category, specs in spec_rows.items():
-            logger.debug("Processing Category: '%s'", category)
-            for spec_name, values in specs.items():
+        for category, subcats in spec_rows.items():
+            for spec_name, values in subcats.items():
                 if values:  # Only create row if we have values
-                    logger.debug("Processing spec_name: '%s' with values: %s", spec_name, values)
-                    
-                    # Create SpecRow and immediately check its specification
-                    row = SpecRow(
+                    rows.append(SpecRow(
                         category=category.strip(),
-                        specification=spec_name,
+                        specification=spec_name.strip(),  # Will be empty string when spec_key is empty
                         values=values
-                    )
-                    logger.debug("Created SpecRow - final specification: '%s'", row.specification)
-                    rows.append(row)
+                    ))
 
-        return cls(rows=rows, model_names=model_names)
+        return cls(rows=rows, model_names=model_names).to_dataframe()
 
     @model_validator(mode="after")
     def validate_model_names(self) -> "SpecsDataFrame":
@@ -179,13 +130,8 @@ class SpecsDataFrame(BaseModel):
             row_dict = {}
             if row.category:
                 row_dict["Category"] = row.category
-            # Debug: Log specification value before adding to DataFrame
-            print("\nAdding to DataFrame:")
-            print(f"Category: '{row.category}'")
-            print(f"Specification: '{row.specification}'")
-            print(f"Values: {row.values}\n")
-            # Always include specification, even if empty
-            row_dict["Specification"] = row.specification
+            if row.specification:
+                row_dict["Specification"] = row.specification
             row_dict.update(row.values)
             data.append(row_dict)
 
@@ -316,12 +262,17 @@ class ComparisonResult(BaseModel):
                 self.format_dataframe(self.spec_differences_df)
             ])
 
-        # Add findings if available
-        if self.findings and self.findings.findings:
-            output.append("\nAI Analysis:")
-            output.append(self.findings.findings.summary)
-            output.append("\nRecommendations:")
-            for rec in self.findings.findings.recommendations:
-                output.append(f"- {rec.action} {rec.model} {rec.context}")
+        # Format AI analysis if available
+        if self.findings and self.findings.analysis:
+            output.extend([
+                "",
+                "AI Analysis:",
+                "",
+                "Summary:",
+                self.findings.get_summary(),
+                "",
+                "Detailed Analysis:",
+                self.findings.get_details()
+            ])
 
         return "\n".join(output) if output else "No data available."

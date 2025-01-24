@@ -1,8 +1,9 @@
+"""Tests for vector store functionality."""
 import pytest
 from datetime import datetime
 from uuid import UUID
-from backend.src.app.core.vector_store import VectorStore
-from backend.src.app.models import VectorEntry
+from ....core.vector_store import VectorStore
+from ....models import VectorEntry
 
 @pytest.mark.asyncio
 async def test_add_entry(vector_store: VectorStore) -> None:

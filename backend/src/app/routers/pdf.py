@@ -3,10 +3,10 @@ from fastapi.responses import FileResponse
 from typing import List, Dict, Any, cast
 from pydantic import BaseModel
 import logging
-from backend.src.app.core.process_pdf import PDFProcessor
-from backend.src.app.core.vector_store import VectorStore
+from ..core.process_pdf import PDFProcessor
+from ..core.vector_store import VectorStore
 from openai import OpenAI
-from backend.src.app.core.config import get_settings
+from ..core.config import get_settings
 from pathlib import Path
 
 

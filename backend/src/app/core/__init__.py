@@ -1,4 +1,4 @@
-"""Core functionality module."""
+"""Core functionality package."""
 from .process_pdf import PDFProcessor
 from .process_compare import ComparisonProcessor
 from .process_difference import DifferenceProcessor

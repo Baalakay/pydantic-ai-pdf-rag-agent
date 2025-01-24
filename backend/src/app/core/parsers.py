@@ -1,5 +1,6 @@
+"""PDF parsing utilities."""
+from ..models.pdf import SpecValue
 from typing import Dict, List, Optional, Union, Any, cast
-from backend.src.app.models.pdf import SpecValue
 
 
 class PDFSectionParser:

@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime
 from uuid import UUID
-from backend.src.app.core.chat_service import ChatService
-from backend.src.app.models import Conversation, Message
+from ....core.chat_service import ChatService
+from ....models import Conversation, Message
 
 @pytest.mark.asyncio
 async def test_create_conversation(chat_service: ChatService) -> None:

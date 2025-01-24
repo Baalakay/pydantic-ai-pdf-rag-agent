@@ -1,13 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 import logging
-from backend.src.app.core.chat_service import ChatService
-from backend.src.app.core.vector_store import VectorStore
-from backend.src.app.schemas.chat import ChatQuery, ChatResponse
+from ..core.chat_service import ChatService
+from ..core.vector_store import VectorStore
+from ..schemas.chat import ChatQuery, ChatResponse
+from ..core.process_compare import ComparisonProcessor
+from typing import List
 from openai import OpenAI
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+chat_router = APIRouter(prefix="/chat", tags=["chat"])
+compare_router = APIRouter(prefix="/api", tags=["comparison"])
+
+class ComparisonRequest(BaseModel):
+    """Request model for model comparison."""
+    model_numbers: List[str]
 
 async def get_chat_service() -> ChatService:
     """Dependency to get chat service instance."""
@@ -15,20 +23,12 @@ async def get_chat_service() -> ChatService:
     vector_store = VectorStore(openai_client)
     return ChatService(vector_store, openai_client)
 
-@router.post("/query", response_model=ChatResponse)
+@chat_router.post("/query", response_model=ChatResponse)
 async def query(
     query: ChatQuery,
     chat_service: ChatService = Depends(get_chat_service)
 ) -> ChatResponse:
-    """Query the PDFs using RAG.
-
-    Args:
-        query: The query parameters including the question
-        chat_service: Chat service instance for handling the query
-
-    Returns:
-        ChatResponse containing just the answer
-    """
+    """Query the PDFs using RAG."""
     try:
         response = await chat_service.generate_response(
             question=query.question,
@@ -41,4 +41,18 @@ async def query(
         raise HTTPException(
             status_code=500,
             detail="Error processing your question"
+        )
+
+@compare_router.post("/compare")
+async def compare_models(request: ComparisonRequest) -> dict:
+    """Compare specifications between models."""
+    try:
+        processor = ComparisonProcessor()
+        result = await processor.compare_models(request.model_numbers)
+        return result.model_dump()
+    except Exception as e:
+        logger.error(f"Error comparing models: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error comparing models: {str(e)}"
         )

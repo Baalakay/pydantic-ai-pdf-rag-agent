@@ -4,8 +4,8 @@ from datetime import datetime
 import logfire
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from backend.src.app.models import Message, Conversation, VectorEntry
-from backend.src.app.core.vector_store import VectorStore
+from ..models import Message, Conversation, VectorEntry
+from ..core.vector_store import VectorStore
 
 MessageRole = Literal["user", "assistant", "system"]
 

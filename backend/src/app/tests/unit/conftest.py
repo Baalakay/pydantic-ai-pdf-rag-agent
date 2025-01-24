@@ -1,12 +1,14 @@
+"""Test configuration and fixtures."""
 import pytest
 from uuid import uuid4
 from datetime import datetime
 from openai import OpenAI
-from backend.src.app.core.vector_store import VectorStore
-from backend.src.app.core.chat_service import ChatService
-from backend.src.app.models import Message, Conversation, VectorEntry
-from backend.src.app.core.process_pdf import PDFProcessor
-from backend.src.app.models.pdf import PDFData
+from unittest.mock import Mock
+from ...core.vector_store import VectorStore
+from ...core.chat_service import ChatService
+from ...models import Message, Conversation, VectorEntry
+from ...core.process_pdf import PDFProcessor
+from ...models.pdf import PDFData
 
 @pytest.fixture
 def openai_client() -> OpenAI:

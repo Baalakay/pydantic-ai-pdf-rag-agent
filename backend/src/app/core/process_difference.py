@@ -1,8 +1,7 @@
-"""Analyzer for processing differences between models."""
-from typing import Dict, List
+"""Difference processing module."""
+from typing import Dict, List, Optional, Tuple
 import pandas as pd
-
-from backend.src.app.models.differences import Differences, Difference
+from ..models.differences import Differences, Difference
 
 
 class DifferenceProcessor:

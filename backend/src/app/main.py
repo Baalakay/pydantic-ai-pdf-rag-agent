@@ -5,9 +5,12 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import logfire
+# import logfire  # Temporarily disabled
 
-from .routers import pdf, chat
+# Import routers directly
+from .routers.pdf import router as pdf_router
+from .routers.chat import chat_router, compare_router
+from .routers.analysis import router as analysis_router
 
 # Load environment variables
 load_dotenv()
@@ -16,13 +19,10 @@ load_dotenv()
 async def lifespan(app: FastAPI) -> Any:
     """Handle application startup and shutdown events."""
     # Startup
-    logfire.info("Starting up PDF RAG Chatbot")
+    print("Starting up PDF RAG Chatbot")  # Using print instead of logfire
     yield
     # Shutdown
-    logfire.info("Shutting down PDF RAG Chatbot")
-
-# Configure Logfire
-logfire.configure()  # This will use credentials from ~/.logfire/default.toml
+    print("Shutting down PDF RAG Chatbot")  # Using print instead of logfire
 
 # Create FastAPI app
 app = FastAPI(
@@ -32,23 +32,25 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Instrument FastAPI and Pydantic
-logfire.instrument_fastapi(app)
-logfire.instrument_pydantic()
-
-# CORS middleware
-origins: List[str] = ["*"]  # Update this with your frontend URL in production
+# Configure CORS - Add more allowed origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Add routers
-app.include_router(pdf.router)
-app.include_router(chat.router)
+app.include_router(pdf_router)
+app.include_router(chat_router)
+app.include_router(compare_router)
+app.include_router(analysis_router)
 
 @app.get("/")
 async def root() -> JSONResponse:

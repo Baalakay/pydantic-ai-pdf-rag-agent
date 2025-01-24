@@ -1,4 +1,4 @@
-"""Models package initialization."""
+"""Data models package."""
 from .comparison import ComparisonResult, SpecsDataFrame, SpecRow
 from .differences import Differences, Difference
 from .ai_findings import AIFindings

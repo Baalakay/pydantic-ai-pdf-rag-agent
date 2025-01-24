@@ -8,7 +8,7 @@ from pydantic import (
     field_validator
 )
 
-from backend.src.app.models.pdf import SectionData
+from .pdf import SectionData
 
 if TYPE_CHECKING:
     import pandas as pd

@@ -1,12 +1,12 @@
-"""Service for processing PDF files."""
+"""Service for processing PDF specifications."""
 from typing import Dict, List, Optional
 from pathlib import Path
 import pdfplumber
 import fitz  # type: ignore  # PyMuPDF
-from backend.src.app.models.pdf import (
+from ..models.pdf import (
     PDFData, SectionData, CategorySpec, SpecValue
 )
-from backend.src.app.core.config import get_settings
+from .config import get_settings
 import re
 
 
@@ -22,6 +22,7 @@ class PDFProcessor:
             )
         }
         self.section_order = ['electrical', 'magnetic', 'physical']
+        self.pdf_dir = Path(get_settings().PDF_DIR)
 
     def _extract_text(self, filename: str) -> str:
         """Extract text from the first page of a PDF file."""
@@ -375,9 +376,44 @@ class PDFProcessor:
 
         return None
 
-    def process_pdf(self, filename: str) -> PDFData:
-        """Process PDF file and extract structured data."""
-        text = self._extract_text(filename)
+    def _find_pdf_path(self, model_number: str) -> Optional[Path]:
+        """Find PDF path for given model number.
+        
+        Args:
+            model_number: Model number (e.g., "520", "980R")
+            
+        Returns:
+            Optional[Path]: Path to PDF if found, None otherwise
+        """
+        model_pattern = model_number.upper()
+        for pdf_path in self.pdf_dir.glob("*.pdf"):
+            if model_pattern in pdf_path.name.upper():
+                return pdf_path
+        return None
+
+    def process_pdf(self, model_input: str) -> PDFData:
+        """Process PDF for a given model number or path.
+        
+        Args:
+            model_input: Either a model number (e.g., "520") or a full path to PDF
+            
+        Returns:
+            PDFData: Structured data extracted from PDF
+            
+        Raises:
+            ValueError: If PDF cannot be found or processed
+        """
+        # First try treating input as a path
+        pdf_path = Path(model_input)
+        if not pdf_path.exists():
+            # If not a valid path, try finding PDF by model number
+            if found_path := self._find_pdf_path(model_input):
+                pdf_path = found_path
+            else:
+                raise ValueError(f"No PDF found for model {model_input}")
+
+        self.current_file = pdf_path
+        text = self._extract_text(str(pdf_path))
         tables = self._extract_tables(text)
 
         # Initialize sections
@@ -437,7 +473,12 @@ class PDFProcessor:
         # Extract diagram
         diagram_path = self._extract_model_diagram()
 
+        # Extract model name from filename
+        model_match = re.search(r'HSR-(\d+[RFW]?)-', pdf_path.name, re.IGNORECASE)
+        model_name = f"HSR-{model_match.group(1)}" if model_match else ""
+
         return PDFData(
+            model_name=model_name,
             sections=sections,
             notes=notes_dict,
             diagram_path=diagram_path

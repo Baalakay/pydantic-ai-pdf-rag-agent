@@ -1,13 +1,11 @@
 """Service for comparing PDF specifications."""
-from typing import Dict, List, Optional, Any, cast
+from typing import Dict, List, Optional, Any
 import pandas as pd
-from backend.src.app.models.comparison import ComparisonResult
-from backend.src.app.core.process_pdf import PDFProcessor
-from backend.src.app.models.pdf import PDFLocator, PDFData, SpecValue, SectionData
-from backend.src.app.models.ai_findings import AIFindings
-from backend.src.app.models.features import ModelSpecs
-from backend.src.app.core.config import get_settings
-from pathlib import Path
+from ..models.comparison import ComparisonResult
+from .process_pdf import PDFProcessor
+from ..models.pdf import PDFData, SpecValue, SectionData
+from ..models.ai_findings import AIFindings
+from ..models.features import ModelSpecs
 
 
 class ComparisonProcessor:
@@ -16,8 +14,6 @@ class ComparisonProcessor:
     def __init__(self) -> None:
         """Initialize the comparison processor."""
         self.pdf_processor = PDFProcessor()
-        settings = get_settings()
-        self.pdf_dir = settings.PDF_DIR
 
     def _convert_to_model_specs(self, name: str, data: PDFData) -> ModelSpecs:
         """Convert PDFData to ModelSpecs."""
@@ -40,10 +36,10 @@ class ComparisonProcessor:
             sections={k: v for k, v in data.sections.items() if k != "Features_And_Advantages"}
         )
 
-    async def compare_models(self, model_names: List[str]) -> ComparisonResult:
+    async def compare_models(self, model_numbers: List[str]) -> ComparisonResult:
         """Compare specifications between multiple models."""
         # Collect model data
-        models = self._collect_model_data(model_names)
+        models = self._collect_model_data(model_numbers)
         if not models:
             return ComparisonResult(
                 features_df=pd.DataFrame(),
@@ -56,11 +52,11 @@ class ComparisonProcessor:
         sections = self._get_ordered_sections(models)
 
         # Process features and advantages
-        features_df = self._process_features(models, model_names)
-        advantages_df = self._process_advantages(models, model_names)
+        features_df = self._process_features(models, model_numbers)
+        advantages_df = self._process_advantages(models, model_numbers)
 
         # Process specifications
-        specs_df, spec_differences = self._process_specifications(models, model_names, sections)
+        specs_df, spec_differences = self._process_specifications(models, model_numbers, sections)
 
         # Generate AI analysis if there are differences
         ai_findings: Optional[AIFindings] = None
@@ -80,7 +76,7 @@ class ComparisonProcessor:
                 key = f"{category_str} - {spec_str}"
                 analysis_data[key] = values
 
-            ai_findings = await AIFindings.analyze(model_names, analysis_data)
+            ai_findings = await AIFindings.analyze(model_numbers, analysis_data)
 
         return ComparisonResult(
             features_df=features_df,
@@ -90,12 +86,21 @@ class ComparisonProcessor:
             findings=ai_findings
         )
 
-    def _collect_model_data(self, model_names: List[str]) -> Dict[str, PDFData]:
+    def _collect_model_data(self, model_numbers: List[str]) -> Dict[str, PDFData]:
         """Collect PDF data for each model."""
         models: Dict[str, PDFData] = {}
-        for name in model_names:
-            if pdf_path := PDFLocator.find_pdf_by_model(name, cast(Path, self.pdf_dir)):
-                models[name] = self.pdf_processor.process_pdf(str(pdf_path))
+        # Create mapping of input model numbers to full model names
+        model_name_map = {}
+        for model_num in model_numbers:
+            result = self.pdf_processor.process_pdf(model_num)
+            full_model = result.model_name.split('-')[1]  # e.g., "980R" from "HSR-980R"
+            models[full_model] = result
+            model_name_map[model_num] = full_model
+        
+        # Update the model_numbers list with full model names
+        for i, num in enumerate(model_numbers):
+            model_numbers[i] = model_name_map[num]
+            
         return models
 
     def _get_ordered_sections(self, models: Dict[str, PDFData]) -> List[str]:
@@ -109,7 +114,7 @@ class ComparisonProcessor:
     def _process_specifications(
         self,
         models: Dict[str, PDFData],
-        model_names: List[str],
+        model_numbers: List[str],
         sections: List[str]
     ) -> tuple[pd.DataFrame, List[Dict[str, Any]]]:
         """Process specifications from all sections."""
@@ -132,7 +137,7 @@ class ComparisonProcessor:
 
                 # Add values for each model
                 values = {}
-                for name in model_names:
+                for name in model_numbers:
                     if name in models and section in models[name].sections:
                         section_data = models[name].sections[section]
                         value = self._get_spec_value(section_data, category, specification)
@@ -156,7 +161,7 @@ class ComparisonProcessor:
             "Specification": ""
         }
         has_diagrams = False
-        for name in model_names:
+        for name in model_numbers:
             if name in models:
                 model_data = models[name]
                 if model_data.diagram_path is not None:
@@ -188,9 +193,9 @@ class ComparisonProcessor:
                 for category_name, category in section_data.categories.items():
                     # Preserve subcategory order
                     for subcat_name in category.subcategories:
-                        ordered_specs.append(
-                            (category_name, subcat_name if subcat_name else category_name)
-                        )
+                        # If subcategory name matches category or is empty, use empty string
+                        spec_name = "" if not subcat_name or subcat_name == category_name else subcat_name
+                        ordered_specs.append((category_name, spec_name))
                 break
 
         return ordered_specs
@@ -207,36 +212,39 @@ class ComparisonProcessor:
             spec_key = "" if specification == category else specification
             if spec_key in category_data.subcategories:
                 spec_value = category_data.subcategories[spec_key]
-                return f"{spec_value.value}{f' {spec_value.unit}' if spec_value.unit else ''}"
+                # Preserve the exact value, including blank strings
+                value = str(spec_value.value)
+                unit = spec_value.unit if spec_value.unit else ""
+                return f"{value}{f' {unit}' if unit else ''}"
         return ""
 
     def _process_features(
         self,
         models: Dict[str, PDFData],
-        model_names: List[str]
+        model_numbers: List[str]
     ) -> pd.DataFrame:
         """Process features from all models."""
-        return self._process_feature_type(models, model_names, "Features")
+        return self._process_feature_type(models, model_numbers, "Features")
 
     def _process_advantages(
         self,
         models: Dict[str, PDFData],
-        model_names: List[str]
+        model_numbers: List[str]
     ) -> pd.DataFrame:
         """Process advantages from all models."""
-        return self._process_feature_type(models, model_names, "Advantages")
+        return self._process_feature_type(models, model_numbers, "Advantages")
 
     def _process_feature_type(
         self,
         models: Dict[str, PDFData],
-        model_names: List[str],
+        model_numbers: List[str],
         feature_type: str
     ) -> pd.DataFrame:
         """Process features or advantages from models."""
         rows: List[Dict[str, Any]] = []
 
         # Process each model in order
-        for name in model_names:
+        for name in model_numbers:
             if name not in models:
                 continue
 
@@ -286,7 +294,7 @@ class ComparisonProcessor:
                     existing[name] = "✓"
                 else:
                     row = {"Specification": item}
-                    row.update({n: "✓" if n == name else "" for n in model_names})
+                    row.update({n: "✓" if n == name else "" for n in model_numbers})
                     rows.append(row)
 
         # Create DataFrame and rename Specification column to empty string

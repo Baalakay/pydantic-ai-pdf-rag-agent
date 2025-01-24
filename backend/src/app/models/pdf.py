@@ -1,9 +1,10 @@
+"""PDF data models."""
 from typing import Dict, List, Optional, Union, Any
-from pydantic import BaseModel, model_validator, ConfigDict
+from pydantic import BaseModel, model_validator, ConfigDict, computed_field
 from pathlib import Path
 import re
-from backend.src.app.core.transformers import TransformedSpecValue, SpecTransformer
-from backend.src.app.core.config import get_settings
+from ..core.transformers import TransformedSpecValue, SpecTransformer
+from ..core.config import get_settings
 
 
 class SpecValue(BaseModel):
@@ -51,14 +52,22 @@ class FeaturesAdvantages(BaseModel):
 
 class PDFData(BaseModel):
     """Model for storing structured data extracted from a PDF."""
+    model_name: str
     sections: Dict[str, SectionData]
     notes: Optional[Dict[str, str]] = None
     diagram_path: Optional[str] = None
 
+    @computed_field
+    @property
+    def model_number(self) -> str:
+        """Extract numeric model number from full model name (e.g., '520' from 'HSR-520R')."""
+        return self.model_name.split('-')[1].rstrip('RFW')
+
     model_config = ConfigDict(
         json_schema_extra={
-            "required": ["sections"],
+            "required": ["model_name", "sections"],
             "properties": {
+                "model_name": {},
                 "sections": {},
                 "notes": {},
                 "diagram_path": {}
@@ -76,8 +85,12 @@ class PDFLocator(BaseModel):
         cls,
         model_keyword: str,
         pdf_dir: Optional[Path] = None
-    ) -> Optional[Path]:
-        """Find a PDF file based on a model keyword."""
+    ) -> Optional[tuple[Path, str]]:
+        """Find a PDF file based on a model keyword.
+        
+        Returns:
+            Optional tuple of (pdf_path, model_name) where model_name is in HSR-XXXR format
+        """
         if pdf_dir is None:
             settings = get_settings()
             pdf_dir = settings.PDF_DIR
@@ -104,5 +117,6 @@ class PDFLocator(BaseModel):
                 model_number = match.group(1)
                 if (clean_keyword in model_number or
                         model_number in clean_keyword):
-                    return pdf_path
+                    full_model = f"HSR-{model_number}"
+                    return pdf_path, full_model
         return None

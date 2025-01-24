@@ -1,3 +1,4 @@
-from . import pdf, chat
+# Router package initialization
+# Empty to avoid circular imports
 
-__all__ = ['pdf', 'chat']
+"""API routers package."""

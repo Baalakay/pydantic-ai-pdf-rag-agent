@@ -1,10 +1,11 @@
-from typing import List, Tuple
+"""Vector store for embeddings."""
+from typing import List, Tuple, Optional
 from uuid import uuid4, UUID
 from datetime import datetime
 import numpy as np
 from openai import OpenAI
 import logfire
-from backend.src.app.models import VectorEntry
+from ..models import VectorEntry
 import os
 import json
 
