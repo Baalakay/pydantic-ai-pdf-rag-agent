@@ -1,13 +1,13 @@
 {
     "name": "Python Dev Env",
-	"build": {
-        "dockerfile": "./Dockerfile",
-        "context": "."
-    },
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "devcontainer",
+    "workspaceFolder": "/workspace",
     "remoteUser": "vscode",
 	"remoteEnv": {
 		"LOCAL_WORKSPACE_FOLDER": "${containerWorkspaceFolder}",
 		"OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
+        "ANTHROPIC_API_KEY": "${localEnv:OPENAI_API_KEY}",
 		"VITE_OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
 		"MYPY_CONFIG_FILE": "backend/mypy.ini"
 	},
@@ -19,7 +19,7 @@
             "userGid": "1000",
             "upgradePackages": "true"
         },
-        "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+        "ghcr.io/devcontainers/features/node:1": { "version": "20" },
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers-extra/features/pre-commit:2": {},
         "ghcr.io/devcontainers-contrib/features/ruff:1": {},
@@ -50,16 +50,10 @@
                 "typescript.tsdk": "frontend/node_modules/typescript/lib"
             },
             "extensions": [
-                // "ms-python.mypy-type-checker",
-                // "ms-python.pyright",
-                // "ms-python.vscode-pylance",
-                // "charliermarsh.ruff",
-                // "ms-azuretools.vscode-docker"
-                // "tamasfe.even-better-toml",
-                // "njpwerner.autodocstring",
-                // "ms-python.debugpy",
-                // "ms-toolsai.jupyter",
-                // "bradlc.vscode-tailwindcss"
+                "ms-toolsai.jupyter",
+                "ms-toolsai.jupyter-keymap",
+                "ms-toolsai.jupyter-renderers",
+                "ms-python.python"
             ]
 		}
 	},
@@ -69,7 +63,7 @@
             "source=${localEnv:HOME}${localEnv:USERPROFILE}/.zsh_history,target=/home/vscode/.zsh_history,type=bind"
     ],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [5173, 8000],
+	// "forwardPorts": [5173, 8000],
 
 	"postCreateCommand": "bash .devcontainer/post-create.sh"
 }

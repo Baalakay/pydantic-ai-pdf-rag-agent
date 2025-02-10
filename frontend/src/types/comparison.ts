@@ -1,3 +1,6 @@
+import type { QueryAnalysis } from './query';
+import type { BaseResult, DataFrame } from './core';
+
 // Types matching backend output structures
 export interface SpecValue {
   unit?: string;
@@ -17,38 +20,6 @@ export interface PDFData {
   sections: Record<string, SectionData>;
   notes?: Record<string, string>;
   diagram_path?: string;
-}
-
-// DataFrame structure from pandas
-export interface DataFrame {
-  columns: string[];
-  data: Record<string, any>[];
-}
-
-export interface SpecificationDisplay {
-  show: boolean;
-  sections: string[];
-}
-
-export interface DisplaySections {
-  features: boolean;
-  advantages: boolean;
-  specifications: SpecificationDisplay;
-  differences: SpecificationDisplay;
-}
-
-export interface FocusSettings {
-  section: string;
-  category?: string;
-  attribute?: string;
-}
-
-export interface QueryAnalysis {
-  type: 'single' | 'comparison';
-  models: string[];
-  specific_attribute?: string | null;
-  display_sections: DisplaySections;
-  focus?: FocusSettings | null;
 }
 
 export interface Recommendation {
@@ -73,10 +44,13 @@ export interface CombinedAnalysis {
   findings: AIFindings;
 }
 
-export interface ComparisonResult {
-  features_df: DataFrame;
-  advantages_df: DataFrame;
-  specs_df: DataFrame;
-  spec_differences_df: DataFrame;
+export interface ComparisonResult extends BaseResult {
+  features: DataFrame;
+  advantages: DataFrame;
+  specifications: DataFrame;
+  differences: DataFrame;
   findings?: AIFindings;
-} 
+}
+
+console.log("Display sections:", currentQuery.display_sections);
+console.log("Specifications show:", currentQuery.display_sections.specifications?.show); 

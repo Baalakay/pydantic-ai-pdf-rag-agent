@@ -1,0 +1,15 @@
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    user: vscode
+    ports:
+      - "5173:5173"
+      - "8000:8000"
+      - "8888:8888"
+    command: sleep infinity
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

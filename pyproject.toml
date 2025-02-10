@@ -28,7 +28,19 @@ dependencies = [
     # PDF Processing
     "PyMuPDF",
     "pdfplumber",
-    "argon2-cffi>=23.0.0"
+    "argon2-cffi>=23.0.0",
+    "anthropic>=0.45.2",
+    "plotly",
+    "seaborn",
+    "ipywidgets>=8.1.1",
+    "jupyter",
+    "jupyterlab>=4.0.0",
+    "rich",
+    "widgetsnbextension>=4.0.9",
+    "jupyter-core>=5.0.0",
+    "ollama>=0.4.7",
+    "langchain-community>=0.3.16",
+    "langchain-ollama>=0.2.3",
 ]
 
 [build-system]
@@ -48,7 +60,7 @@ dev-dependencies = [
 ]
 
 [tool.rye.scripts]
-dev = "uvicorn hsi_pdf_agent.main:app --reload"
+dev = "uvicorn hsi_pdf_agent.main:app --reload --host 0.0.0.0 --port 8000"
 test = "pytest"
 lint = "ruff check ."
 format = "ruff format ."

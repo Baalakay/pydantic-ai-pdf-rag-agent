@@ -1,4 +1,5 @@
 import type { ComparisonResult } from '@/types/comparison';
+import type { SingleQueryResult } from '@/types/query';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -29,37 +30,39 @@ export const api = {
   },
 
   // Chat with the agent
-  async chat(message: string, conversationId?: string) {
+  async chat(query: string): Promise<SingleQueryResult> {
     const response = await fetch(`${API_BASE_URL}/chat/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        question: message,
-        conversation_id: conversationId,
+      body: JSON.stringify({ 
+        question: query,
+        max_context_sections: 3
       }),
     });
-    
+
     if (!response.ok) {
-      throw new Error('Chat request failed');
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
     return response.json();
   },
-};
 
-export async function fetchComparison(modelNumbers: string[]): Promise<ComparisonResult> {
-  const response = await fetch(`${API_BASE_URL}/api/compare`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ model_numbers: modelNumbers }),
-  });
+  // Compare models
+  async compare(modelNumbers: string[]): Promise<ComparisonResult> {
+    const response = await fetch(`${API_BASE_URL}/api/compare`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model_numbers: modelNumbers }),
+    });
 
-  if (!response.ok) {
-    throw new Error('Failed to fetch comparison data');
+    if (!response.ok) {
+      throw new Error('Failed to fetch comparison data');
+    }
+
+    return response.json();
   }
-
-  return response.json();
-} 
+}; 

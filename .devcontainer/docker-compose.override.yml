@@ -1,0 +1,7 @@
+services:
+  devcontainer:
+    # Add any local development overrides here
+    environment:
+      - NODE_ENV=development
+    # volumes:
+    #   - ~/.ssh:/home/vscode/.ssh:cached  # Optional: SSH keys for development 

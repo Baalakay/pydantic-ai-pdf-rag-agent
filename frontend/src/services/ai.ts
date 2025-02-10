@@ -1,4 +1,5 @@
-import { QueryAnalysis, CombinedAnalysis } from '@/types/comparison';
+import type { QueryAnalysis } from '@/types/query';
+import type { CombinedAnalysis } from '@/types/comparison';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -13,7 +14,9 @@ export async function analyzeQuery(query: string): Promise<QueryAnalysis> {
         'Accept': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ 
+        model_numbers: extractModelsFromQuery(query) 
+      }),
     });
 
     if (!response.ok) {
@@ -22,14 +25,14 @@ export async function analyzeQuery(query: string): Promise<QueryAnalysis> {
     }
 
     const data = await response.json();
-    return data;
+    return data as QueryAnalysis;  // Ensure type safety
   } catch (error) {
     console.error('Error analyzing query:', error);
-    // Return default analysis
+    // Return default analysis matching QueryAnalysis type
     return {
       type: 'single',
       models: [],
-      displaySections: {
+      displaySections: {  // Changed back to match frontend type
         features: true,
         advantages: true,
         specifications: {
@@ -43,6 +46,13 @@ export async function analyzeQuery(query: string): Promise<QueryAnalysis> {
       },
     };
   }
+}
+
+// Helper function to extract model numbers from query
+function extractModelsFromQuery(query: string): string[] {
+  // Simple regex to match model numbers like 520R, 637, 1016R
+  const matches = query.match(/\b\d{3,4}R?\b/g) || [];
+  return matches;
 }
 
 export async function analyzeCombined(

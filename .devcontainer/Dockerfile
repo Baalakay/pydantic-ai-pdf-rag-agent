@@ -20,6 +20,11 @@ RUN pip install --no-cache-dir --upgrade \
     uvicorn \
     numpy \
     pandas \
+    plotly \
+    seaborn \
+    ipywidgets \
     pydantic-ai[logfire] \
     logfire \
-    huggingface_hub[cli,torch]
+    huggingface_hub[cli,torch] \
+    ollama
+    

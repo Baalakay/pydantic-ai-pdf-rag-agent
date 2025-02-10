@@ -1,13 +1,9 @@
 """Model for AI analysis findings."""
-from typing import Dict, List, ClassVar
+from typing import Dict, List, ClassVar, Any
 from pydantic import BaseModel, Field, ConfigDict
-from openai import AsyncOpenAI
-from openai.types.chat import (
-    ChatCompletionMessageParam,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam
-)
-import os
+import re
+from ..core.ai_provider import Message, OllamaProvider
+from ..core.chat_service import ChatService
 
 
 class Recommendation(BaseModel):
@@ -41,7 +37,7 @@ class StructuredFindings(BaseModel):
 
 class AIFindings(BaseModel):
     """Model for AI analysis findings."""
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=False)
 
     findings: StructuredFindings = Field(
         ...,
@@ -89,6 +85,29 @@ Important:
 
 Be technical but clear. Make each recommendation actionable and specific."""
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        self._chat_service = ChatService()
+
+    @property
+    def chat_service(self) -> ChatService:
+        return self._chat_service
+
+    async def generate_findings(self, context: str) -> List[Dict[str, Any]]:
+        messages = [
+            Message(
+                role="system",
+                content="You are an expert at analyzing PDF documents and generating findings."
+            ),
+            Message(
+                role="user",
+                content=f"Generate findings from this context: {context}"
+            )
+        ]
+        
+        response = await self.chat_service.get_completion(messages)
+        # ... rest of existing findings logic ...
+
     @classmethod
     async def analyze(
         cls,
@@ -96,14 +115,6 @@ Be technical but clear. Make each recommendation actionable and specific."""
         differences: Dict[str, Dict[str, str]]
     ) -> "AIFindings":
         """Analyze differences between models using AI."""
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            return cls(findings=StructuredFindings(
-                recommendations=[],
-                summary="No analysis available.",
-                technical_details="No detailed analysis available."
-            ))
-
         # Format differences for analysis
         diff_text = "Differences between models:\n\n"
         for spec, values in differences.items():
@@ -112,14 +123,13 @@ Be technical but clear. Make each recommendation actionable and specific."""
                 diff_text += f"  {model}: {value}\n"
             diff_text += "\n"
 
-        # Create chat completion request
-        client = AsyncOpenAI(api_key=api_key)
-        messages: List[ChatCompletionMessageParam] = [
-            ChatCompletionSystemMessageParam(
+        chat_service = ChatService(provider=OllamaProvider())
+        messages = [
+            Message(
                 role="system",
                 content=cls.SYSTEM_PROMPT + "\n\nRespond with a JSON object that exactly matches the structure shown in the example."
             ),
-            ChatCompletionUserMessageParam(
+            Message(
                 role="user",
                 content=(
                     f"Please analyze these differences between "
@@ -130,29 +140,20 @@ Be technical but clear. Make each recommendation actionable and specific."""
         ]
 
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=messages,
-                response_format={"type": "json_object"},
-                temperature=0.7,
-                max_tokens=2000
-            )
-
-            if not response.choices:
-                return cls(findings=StructuredFindings(recommendations=[], summary="No analysis available.", technical_details="No detailed analysis available."))
-
-            content = response.choices[0].message.content
-            if not content:
-                return cls(findings=StructuredFindings(recommendations=[], summary="No analysis available.", technical_details="No detailed analysis available."))
-
-            # Parse the JSON response
+            response = await chat_service.get_completion(messages)
+            
+            # Parse the JSON response into our model
             import json
-            data = json.loads(content)
+            data = json.loads(response)
             return cls.model_validate(data)
 
         except Exception as e:
             print(f"Error during AI analysis: {str(e)}")
-            return cls(findings=StructuredFindings(recommendations=[], summary="No analysis available.", technical_details="No detailed analysis available."))
+            return cls(findings=StructuredFindings(
+                recommendations=[],
+                summary="No analysis available.",
+                technical_details="No detailed analysis available."
+            ))
 
     def get_summary(self) -> str:
         """Get the analysis summary."""

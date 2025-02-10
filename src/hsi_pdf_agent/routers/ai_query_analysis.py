@@ -22,13 +22,21 @@ class CombinedRequest(BaseModel):
     differences: Dict[str, Dict[str, str]]
 
 
+class ComparisonRequest(BaseModel):
+    """Request model for comparison analysis."""
+    model_numbers: List[str]
+
+
 @router.post("/query")
-async def analyze_query(request: QueryRequest) -> QueryAnalysis:
-    """Analyze a user query to determine display settings."""
-    try:
-        return await QueryAnalysis.analyze_query(request.query)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def analyze_query(request: ComparisonRequest) -> QueryAnalysis:
+    """Analyze the query to determine what to display."""
+    if len(request.model_numbers) > 1:
+        return QueryAnalysis.from_comparison(request.model_numbers)
+    else:
+        return QueryAnalysis(
+            type="single",
+            models=request.model_numbers
+        )
 
 
 @router.post("/combined")

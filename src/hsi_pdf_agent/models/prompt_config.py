@@ -22,4 +22,10 @@ class PromptConfig(BaseModel):
 
 class PromptConfigurations(BaseModel):
     analysis_prompt: PromptConfig = Field(..., description="Configuration for the analysis prompt")
-    findings_prompt: PromptConfig = Field(..., description="Configuration for the findings prompt") 
+    findings_prompt: PromptConfig = Field(..., description="Configuration for the findings prompt")
+
+
+class OllamaConfig(BaseModel):
+    model: str = Field("deepseek-r1:7b", description="The Ollama model to use")
+    base_url: str = Field("http://host.docker.internal:11434", description="Base URL for Ollama server")
+    temperature: float = Field(0.7, description="Temperature setting for the model") 

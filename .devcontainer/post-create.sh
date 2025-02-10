@@ -26,6 +26,7 @@ cd $LOCAL_WORKSPACE_FOLDER
 
 ### Project Specific Settings ####
 
+
 # Instals backend dependencies from pyproject.toml
 rye sync
 
@@ -34,5 +35,5 @@ cd frontend
 npm install
 cd ..
 
-echo "Development environment setup complete!"
+
 

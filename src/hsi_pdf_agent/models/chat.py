@@ -4,12 +4,13 @@ from pydantic import BaseModel, Field
 
 
 class Message(BaseModel):
+    id: str = Field(..., description="Unique identifier for the message")
     role: str = Field(
         ...,
         description="Role of the message sender (system, user, assistant)"
     )
     content: str = Field(..., description="Content of the message")
-    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Conversation(BaseModel):

@@ -1,6 +1,9 @@
 """Models for query analysis."""
-from typing import List, Optional, ClassVar
+from typing import List, Optional, ClassVar, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
+import re
+from ..core.ai_provider import Message as AIMessage, OllamaProvider
+from ..core.chat_service import ChatService
 
 
 class DisplaySections(BaseModel):
@@ -32,11 +35,24 @@ class QueryAnalysis(BaseModel):
     """Model for analyzing user queries."""
     model_config = ConfigDict(frozen=True)
 
-    type: str = Field(..., pattern="^(single|comparison)$")
-    models: List[str]
-    specific_attribute: Optional[str] = None
-    display_sections: DisplaySections
-    focus: Optional[FocusSettings] = None
+    type: str = Field(..., description="Type of query - 'single' or 'comparison'")
+    models: List[str] = Field(default_factory=list, description="List of model numbers to analyze")
+    specific_attribute: Optional[str] = Field(None, description="Specific attribute to focus on")
+    display_sections: dict = Field(
+        default_factory=lambda: {
+            "features": True,
+            "advantages": True,
+            "specifications": {
+                "show": True,
+                "sections": []
+            },
+            "differences": {
+                "show": False,
+                "sections": []
+            }
+        }
+    )
+    focus: Optional[dict] = None
 
     SYSTEM_PROMPT: ClassVar[str] = """You are an intelligent query analyzer for an HSR sensor model comparison system.
 The system has these main sections:
@@ -106,49 +122,89 @@ Example response:
     @classmethod
     async def analyze_query(cls, query: str) -> "QueryAnalysis":
         """Analyze a user query to determine display settings."""
-        from openai import AsyncOpenAI
-        import os
-
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OpenAI API key not found")
-
-        client = AsyncOpenAI(api_key=api_key)
+        chat_service = ChatService(provider=OllamaProvider())
         messages = [
-            {
-                "role": "system",
-                "content": cls.SYSTEM_PROMPT + "\n\nRespond with a JSON object that exactly matches the structure shown in the example."
-            },
-            {
-                "role": "user",
-                "content": f"Analyze this query and respond with JSON: {query}"
-            }
+            AIMessage(
+                role="system",
+                content=cls.SYSTEM_PROMPT + "\n\nRespond with a JSON object that exactly matches the structure shown in the example."
+            ),
+            AIMessage(
+                role="user",
+                content=f"Analyze this query and respond with JSON: {query}"
+            )
         ]
 
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=messages,
-                response_format={"type": "json_object"},
-                temperature=0.7
-            )
-
-            if not response.choices:
-                raise ValueError("No response from OpenAI")
-
-            content = response.choices[0].message.content
-            if not content:
-                raise ValueError("Empty response from OpenAI")
-
+            response = await chat_service.get_completion(messages)
+            
             # Parse the JSON response into our model
             import json
-            data = json.loads(content)
+            data = json.loads(response)
             return cls.model_validate(data)
 
         except Exception as e:
             print(f"Error during query analysis: {str(e)}")
             # Return a default analysis
             return cls(
+                type="single",
+                models=[],
+                display_sections=DisplaySections(
+                    features=True,
+                    advantages=True,
+                    specifications=SpecificationDisplay(show=True, sections=[]),
+                    differences=SpecificationDisplay(show=False, sections=[])
+                )
+            )
+
+    @classmethod
+    def from_comparison(cls, model_numbers: List[str]) -> "QueryAnalysis":
+        """Create analysis for a comparison query."""
+        return cls(
+            type="comparison",
+            models=model_numbers,
+            display_sections={
+                "features": True,
+                "advantages": True,
+                "specifications": {
+                    "show": True,
+                    "sections": []
+                },
+                "differences": {
+                    "show": True,  # Show differences for comparison
+                    "sections": []
+                }
+            }
+        )
+
+
+class AIQueryAnalysis:
+    def __init__(self, chat_service: ChatService):
+        self.chat_service = chat_service
+    
+    async def analyze_query(self, query: str) -> Dict[str, Any]:
+        messages = [
+            AIMessage(
+                role="system",
+                content=QueryAnalysis.SYSTEM_PROMPT + "\n\nRespond with a JSON object that exactly matches the structure shown in the example."
+            ),
+            AIMessage(
+                role="user",
+                content=f"Analyze this query and respond with JSON: {query}"
+            )
+        ]
+        
+        try:
+            response = await self.chat_service.get_completion(messages)
+            
+            # Parse the JSON response into our model
+            import json
+            data = json.loads(response)
+            return QueryAnalysis.model_validate(data)
+
+        except Exception as e:
+            print(f"Error during query analysis: {str(e)}")
+            # Return a default analysis
+            return QueryAnalysis(
                 type="single",
                 models=[],
                 display_sections=DisplaySections(
